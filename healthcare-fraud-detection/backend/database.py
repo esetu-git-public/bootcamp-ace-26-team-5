@@ -35,6 +35,8 @@ def initialize_database(app):
     db.init_app(app)
 
     with app.app_context():
+        # Import models here to register tables with SQLAlchemy
+        import models
 
         db.create_all()
 
