@@ -34,3 +34,10 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Database files
+database/*.db
+*.db
+
+# Python bytecode
+**/__pycache__/

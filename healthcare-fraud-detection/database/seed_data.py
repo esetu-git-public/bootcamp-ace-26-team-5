@@ -26,13 +26,20 @@ cursor.execute("""
     )
 """)
 
+import bcrypt
+
+# Generate secure password hashes
+salt = bcrypt.gensalt()
+admin_hash = bcrypt.hashpw(b"admin123", salt).decode("utf-8")
+officer_hash = bcrypt.hashpw(b"officer123", salt).decode("utf-8")
+
 # Users
 cursor.executemany("""
     INSERT INTO users (full_name, email, password_hash, role)
     VALUES (?, ?, ?, ?)
 """, [
-    ("Admin User", "admin@fraudshield.com", "temporary_hash", "admin"),
-    ("Claims Officer", "officer@fraudshield.com", "temporary_hash", "employee")
+    ("Admin User", "admin@fraudshield.com", admin_hash, "admin"),
+    ("Claims Officer", "officer@fraudshield.com", officer_hash, "employee")
 ])
 
 # Policyholders

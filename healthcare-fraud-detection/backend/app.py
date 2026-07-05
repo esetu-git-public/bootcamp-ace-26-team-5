@@ -30,14 +30,21 @@ load_dotenv()
 # Import Local Files
 # -----------------------------
 from database import db, initialize_database
+from flask_jwt_extended import JWTManager
+
 try:
     from config import Config
 except ImportError:
     from .config import Config
 
-# These files will be created later
-from auth import auth_bp
-from routes import claim_bp
+# Import blueprints from the structured routes directory
+from routes.auth import auth_bp
+from routes.claims import claim_bp
+from routes.dashboard import dashboard_bp
+from routes.reports import reports_bp
+from routes.investigation import investigation_bp
+from routes.audit import audit_bp
+from middleware.error_handler import error_bp
 
 # -----------------------------
 # Create Flask App
@@ -50,6 +57,9 @@ app.config.from_object(Config)
 # Enable CORS
 CORS(app)
 
+# Initialize JWT Manager
+jwt = JWTManager(app)
+
 # Initialize Database
 initialize_database(app)
 
@@ -58,8 +68,12 @@ initialize_database(app)
 # ---------------------------------------
 
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
-
 app.register_blueprint(claim_bp, url_prefix="/api/claims")
+app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
+app.register_blueprint(reports_bp, url_prefix="/api/reports")
+app.register_blueprint(investigation_bp, url_prefix="/api/investigation")
+app.register_blueprint(audit_bp, url_prefix="/api/audit")
+app.register_blueprint(error_bp)
 
 
 # ---------------------------------------
