@@ -1,5 +1,5 @@
 # bootcamp-ace-26-team-5
-Bootcamp by ACE students Team 1
+Bootcamp by ACE students Team 5
 
 # 🏥 Healthcare Insurance Claim Fraud Detection System
 
