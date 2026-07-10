@@ -1,0 +1,11 @@
+{
+    "prediction": "Not Fraud",
+    "fraud_probability": 0.18,
+    "risk_level": "Low",
+    "confidence": 0.82,
+    "reasons": [
+        "Normal claim amount",
+        "No suspicious claim history"
+    ],
+    "model_version": "v1.0"
+}
