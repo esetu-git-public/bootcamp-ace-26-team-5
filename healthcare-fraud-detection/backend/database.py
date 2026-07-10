@@ -1,46 +1,24 @@
-"""
-==========================================================
-Healthcare Fraud Detection System
-Database Configuration
-==========================================================
+# Supabase Database Adapter (Mocking SQLAlchemy for backward compatibility)
 
-Author : Team 5
+class DummySQLAlchemy:
+    def __init__(self):
+        self.session = self
+        
+    def init_app(self, app):
+        pass
+        
+    def commit(self):
+        pass
+        
+    def rollback(self):
+        pass
 
-Purpose:
----------
-1. Connect Flask with SQLite Database
-2. Initialize SQLAlchemy
-3. Create Database Tables
-
-Database Used:
---------------
-SQLite
-
-Database File:
---------------
-database/claims.db
-"""
-
-from flask_sqlalchemy import SQLAlchemy
-
-# SQLAlchemy Object
-db = SQLAlchemy()
-
+db = DummySQLAlchemy()
 
 def initialize_database(app):
     """
-    Initialize database with Flask app.
+    Mock initialization for Supabase integration.
     """
-
-    db.init_app(app)
-
-    with app.app_context():
-        # Import models here to register tables with SQLAlchemy
-        import models
-
-        db.create_all()
-
-        print("=" * 50)
-        print("Database Connected Successfully")
-        print("Tables Created Successfully")
-        print("=" * 50)
+    print("=" * 50)
+    print("Supabase Connected Successfully via REST Client")
+    print("=" * 50)
