@@ -2,11 +2,20 @@ from datetime import datetime, date, timedelta
 import random
 
 from models import InsuranceClaim, Policyholder, InsurancePolicy
-from database import db
 from repositories.claim_repository import (
     find_claim_by_id,
     save_claim as db_save_claim,
     delete_claim as db_delete_claim
+)
+from repositories.policyholder_repository import (
+    find_policyholder_by_name,
+    find_policyholder_by_id,
+    save_policyholder
+)
+from repositories.policy_repository import (
+    find_policy_by_id,
+    find_policy_by_policyholder_id,
+    save_policy
 )
 from services.prediction_service import run_claim_prediction
 from services.audit_service import log_event
@@ -32,7 +41,7 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
         hospital = data.get("hospital", "General Hospital").strip()
         
         # Resolve or create a Policyholder
-        holder = Policyholder.query.filter_by(full_name=patient_name).first()
+        holder = find_policyholder_by_name(patient_name)
         if not holder:
             holder = Policyholder(
                 full_name=patient_name,
@@ -41,11 +50,10 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
                 city="Hyderabad",
                 state="Telangana"
             )
-            db.session.add(holder)
-            db.session.flush() # Generate ID
+            holder = save_policyholder(holder)
             
         # Resolve or create a mock InsurancePolicy
-        policy = InsurancePolicy.query.filter_by(policyholder_id=holder.policyholder_id).first()
+        policy = find_policy_by_policyholder_id(holder.policyholder_id)
         if not policy:
             policy_num = f"POL-MOCK-{random.randint(1000, 9999)}"
             policy = InsurancePolicy(
@@ -57,8 +65,7 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
                 premium_amount=15000.0,
                 coverage_amount=700000.0
             )
-            db.session.add(policy)
-            db.session.flush()
+            policy = save_policy(policy)
 
         policy_id = policy.policy_id
         claim_type = "Medical"
@@ -109,8 +116,7 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
     )
     
     # Insert Claim to generate ID
-    db.session.add(claim)
-    db.session.flush()
+    claim = db_save_claim(claim)
     
     # Log Audit: claim creation
     log_event(
@@ -122,18 +128,26 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
 
     # 2. Prepare payload for Machine Learning Predictor
     # Join with policy details for inference
-    policy_obj = InsurancePolicy.query.get(policy_id)
-    holder_obj = Policyholder.query.get(policy_obj.policyholder_id)
+    policy_obj = find_policy_by_id(policy_id)
+    holder_obj = find_policyholder_by_id(policy_obj.policyholder_id)
     
+    # Handle dates correctly
+    dob = holder_obj.date_of_birth
+    if isinstance(dob, str):
+        try:
+            dob = datetime.strptime(dob, "%Y-%m-%d").date()
+        except ValueError:
+            dob = None
+
     ml_payload = {
-        "Patient_Age": int((date.today() - holder_obj.date_of_birth).days / 365.25) if holder_obj.date_of_birth else 45,
+        "Patient_Age": int((date.today() - dob).days / 365.25) if dob else 45,
         "Patient_Gender": holder_obj.gender or "Male",
         "Diagnosis_Code": diagnosis if is_frontend_form else "I10", # fallback code
         "Procedure_Code": 99214 if is_frontend_form else 99213,
         "Claim_Amount": claim_amount,
         "Approved_Amount": claim_amount * 0.8, # fallback
         "Insurance_Type": policy_obj.insurance_type,
-        "Days_Between_Service_and_Claim": (claim.claim_date - claim.incident_date).days,
+        "Days_Between_Service_and_Claim": (claim.claim_date - claim.incident_date).days if isinstance(claim.claim_date, (date, datetime)) and isinstance(claim.incident_date, (date, datetime)) else 1,
         "Number_of_Claims_Per_Provider_Monthly": 30,
         "Provider_Specialty": "General Practice",
         "Patient_State": holder_obj.state or "TX",
