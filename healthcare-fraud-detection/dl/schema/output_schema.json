@@ -1,0 +1,10 @@
+{
+    "prediction": "Fraud / Not Fraud",
+    "fraud_probability": "float",
+    "risk_level": "Low / Medium / High",
+    "confidence": "float",
+    "reasons": [
+        "string"
+    ],
+    "model_version": "v1.0"
+}
