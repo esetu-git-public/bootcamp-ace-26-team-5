@@ -1,10 +1,9 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
 
-from models import InsuranceClaim, FraudPrediction
 from middleware.role_auth import role_required
 from utils.response import success_response, error_response
-from database import db
+from utils.supabase_client import supabase
 
 reports_bp = Blueprint("reports", __name__)
 
@@ -15,55 +14,71 @@ def generate_reports():
     """
     GET /api/reports
     Compiles detailed analytical reports for export (claims breakdown, fraud rates, and investigation queues).
+    Queries Supabase REST API and performs processing in Python.
     """
     try:
         # 1. Claims Report Data
-        claims_by_status = db.session.query(
-            InsuranceClaim.claim_status,
-            db.func.count(InsuranceClaim.claim_id),
-            db.func.sum(InsuranceClaim.claim_amount)
-        ).group_by(InsuranceClaim.claim_status).all()
-        
+        res_claims = supabase.table("insurance_claims").select("claim_status, claim_amount").execute()
+        claims_by_status = {}
+        if res_claims.data:
+            for row in res_claims.data:
+                status = row.get("claim_status", "submitted")
+                amount = float(row.get("claim_amount", 0.0))
+                if status not in claims_by_status:
+                    claims_by_status[status] = {"count": 0, "total_amount": 0.0}
+                claims_by_status[status]["count"] += 1
+                claims_by_status[status]["total_amount"] += amount
+                
         claims_report = [
             {
-                "status": row[0],
-                "count": row[1],
-                "total_amount": round(row[2] or 0.0, 2)
+                "status": status,
+                "count": info["count"],
+                "total_amount": round(info["total_amount"], 2)
             }
-            for row in claims_by_status
+            for status, info in claims_by_status.items()
         ]
 
         # 2. Fraud Flagged Report Data
-        high_risk_flagged = InsuranceClaim.query.join(
-            FraudPrediction, InsuranceClaim.claim_id == FraudPrediction.claim_id
-        ).filter(
-            FraudPrediction.predicted_label == "Fraud"
-        ).order_by(FraudPrediction.fraud_probability.desc()).all()
-        
-        fraud_report = [
-            {
-                "claim_number": c.claim_number,
-                "claim_amount": c.claim_amount,
-                "claim_status": c.claim_status,
-                "fraud_probability": c.prediction.fraud_probability,
-                "risk_level": c.prediction.risk_level,
-                "reasons": c.prediction.remarks
-            }
-            for c in high_risk_flagged
-        ]
+        res_preds = supabase.table("fraud_predictions").select("*, claim:insurance_claims(*)").eq("predicted_label", "Fraud").order("fraud_probability", desc=True).execute()
+        fraud_report = []
+        if res_preds.data:
+            for row in res_preds.data:
+                claim_data = row.get("claim")
+                if claim_data:
+                    # If claim is nested inside a list (sometimes PostgREST does this depending on relations)
+                    if isinstance(claim_data, list) and len(claim_data) > 0:
+                        claim_data = claim_data[0]
+                    
+                    if isinstance(claim_data, dict):
+                        fraud_report.append({
+                            "claim_number": claim_data.get("claim_number"),
+                            "claim_amount": claim_data.get("claim_amount"),
+                            "claim_status": claim_data.get("claim_status"),
+                            "fraud_probability": row.get("fraud_probability"),
+                            "risk_level": row.get("risk_level"),
+                            "reasons": row.get("remarks")
+                        })
 
         # 3. Investigation Queue Report Data
-        under_review_flagged = InsuranceClaim.query.filter_by(claim_status="under_review").all()
-        investigation_report = [
-            {
-                "claim_number": c.claim_number,
-                "claim_amount": c.claim_amount,
-                "claim_type": c.claim_type,
-                "risk_level": c.prediction.risk_level if c.prediction else "Low",
-                "submitted_at": c.created_at.isoformat() if c.created_at else None
-            }
-            for c in under_review_flagged
-        ]
+        res_review = supabase.table("insurance_claims").select("*, prediction:fraud_predictions(*)").eq("claim_status", "under_review").execute()
+        investigation_report = []
+        if res_review.data:
+            for row in res_review.data:
+                predictions = row.get("prediction") or row.get("fraud_predictions")
+                risk_level = "Low"
+                if predictions:
+                    if isinstance(predictions, list) and len(predictions) > 0:
+                        risk_level = predictions[0].get("risk_level", "Low")
+                    elif isinstance(predictions, dict):
+                        risk_level = predictions.get("risk_level", "Low")
+                        
+                investigation_report.append({
+                    "claim_number": row.get("claim_number"),
+                    "claim_amount": row.get("claim_amount"),
+                    "claim_type": row.get("claim_type"),
+                    "risk_level": risk_level,
+                    "submitted_at": row.get("created_at")
+                })
 
         data = {
             "claims_report": claims_report,
