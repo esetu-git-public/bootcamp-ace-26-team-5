@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from load_model import load_artifacts
+from .load_model import load_artifacts
 
 # Load model and preprocessor
 model, preprocessor = load_artifacts()
