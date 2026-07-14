@@ -4,7 +4,8 @@ from flask_jwt_extended import (
     create_refresh_token,
     jwt_required,
     get_jwt_identity,
-    get_jwt
+    get_jwt,
+    verify_jwt_in_request
 )
 from datetime import timedelta
 
@@ -26,7 +27,7 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/register", methods=["POST"])
 def register():
     """
-    User registration route.
+    User registration route. Enforces default customer role and generates JWT tokens.
     """
     data = request.get_json(silent=True)
     is_valid, err_msg = validate_registration_data(data)
@@ -34,19 +35,49 @@ def register():
         return error_response(message=err_msg, status_code=400)
 
     email = data.get("email").strip().lower()
-    role = data.get("role", "employee").strip().lower()
+    
+    # Enforce default role to customer on public registration
+    # If a role other than 'customer' is requested, require a valid Admin token
+    role = data.get("role", "customer").strip().lower()
+    if role != "customer":
+        try:
+            verify_jwt_in_request(optional=True)
+            claims = get_jwt()
+            caller_role = claims.get("role") if claims else None
+            if caller_role != "admin":
+                role = "customer"
+        except Exception:
+            role = "customer"
 
     # Check if user already exists
     if find_user_by_email(email):
-        return error_response(message="A user with this email address already exists", status_code=409)
+        return error_response(message=message_override if 'message_override' in locals() else "A user with this email address already exists", status_code=409)
 
     # Hash the password and save
     hashed = hash_password(data.get("password"))
     user = create_user(
-        full_name=data.get("full_name"),
+        full_name=data.get("full_name") or data.get("name"),
         email=email,
         password_hash=hashed,
         role=role
+    )
+    
+    if not user:
+        return error_response(
+            message="Database registration failed. The check constraint 'users_role_check' on the users table in Supabase may be rejecting the 'customer' role. Please execute database/patches/fix_users_role_check.sql in your Supabase SQL editor to resolve this.",
+            status_code=400
+        )
+
+    # Generate JWT tokens for auto-login after signup
+    additional_claims = {"role": user.role, "full_name": user.full_name}
+    access_token = create_access_token(
+        identity=str(user.user_id),
+        additional_claims=additional_claims,
+        expires_delta=timedelta(hours=1)
+    )
+    refresh_token = create_refresh_token(
+        identity=str(user.user_id),
+        expires_delta=timedelta(days=7)
     )
 
     # Log audit event
@@ -57,10 +88,24 @@ def register():
     )
 
     return success_response(
-        data=user.to_dict(),
+        data={
+            "access_token": access_token,
+            "accessToken": access_token,
+            "refresh_token": refresh_token,
+            "refreshToken": refresh_token,
+            "user": user.to_dict()
+        },
         message="User registered successfully",
         status_code=201
     )
+
+
+@auth_bp.route("/signup", methods=["POST"])
+def signup():
+    """
+    Alias route for /signup to map frontend routes.
+    """
+    return register()
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -102,7 +147,9 @@ def login():
     return success_response(
         data={
             "access_token": access_token,
+            "accessToken": access_token,
             "refresh_token": refresh_token,
+            "refreshToken": refresh_token,
             "user": user.to_dict()
         },
         message="Login successful",
@@ -130,24 +177,30 @@ def refresh():
     )
 
     return success_response(
-        data={"access_token": new_access_token},
+        data={
+            "access_token": new_access_token,
+            "accessToken": new_access_token
+        },
         message="Token refreshed successfully"
     )
 
 
 @auth_bp.route("/logout", methods=["POST"])
-@jwt_required(optional=True)
 def logout():
     """
-    Logout route. Triggers audit event if user is authenticated.
+    Logout route. Handles validation errors gracefully for expired tokens.
     """
-    user_id = get_jwt_identity()
-    if user_id:
-        log_event(
-            action="USER_LOGOUT",
-            user_id=int(user_id),
-            details="User logged out successfully."
-        )
+    try:
+        verify_jwt_in_request(optional=True)
+        user_id = get_jwt_identity()
+        if user_id:
+            log_event(
+                action="USER_LOGOUT",
+                user_id=int(user_id),
+                details="User logged out successfully."
+            )
+    except Exception:
+        pass
     return success_response(message="Logged out successfully")
 
 

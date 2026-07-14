@@ -6,7 +6,7 @@ let store = [...mockNotifications];
 export async function getNotifications() {
   if (USE_MOCK) return mockDelay([...store], 350);
   const { data } = await api.get('/notifications');
-  return data;
+  return data.data || [];
 }
 
 export async function markAsRead(id) {
@@ -15,7 +15,7 @@ export async function markAsRead(id) {
     return mockDelay(store, 200);
   }
   const { data } = await api.patch(`/notifications/${id}/read`);
-  return data;
+  return data.data;
 }
 
 export async function deleteNotification(id) {
@@ -24,5 +24,5 @@ export async function deleteNotification(id) {
     return mockDelay(store, 200);
   }
   const { data } = await api.delete(`/notifications/${id}`);
-  return data;
+  return data.data;
 }

@@ -36,11 +36,11 @@ export default function App() {
 
             <Route
               path="/investigation"
-              element={<ProtectedRoute roles={[ROLES.INVESTIGATOR, ROLES.ADMIN]}><Investigation /></ProtectedRoute>}
+              element={<ProtectedRoute roles={[ROLES.OFFICER, ROLES.ADMIN, ROLES.INVESTIGATOR]}><Investigation /></ProtectedRoute>}
             />
             <Route
               path="/reports"
-              element={<ProtectedRoute roles={[ROLES.ADMIN, ROLES.INVESTIGATOR]}><Reports /></ProtectedRoute>}
+              element={<ProtectedRoute roles={[ROLES.ADMIN]}><Reports /></ProtectedRoute>}
             />
 
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />

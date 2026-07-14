@@ -1,8 +1,69 @@
 import api, { USE_MOCK, mockDelay } from './api';
 import { mockClaims } from './mockData';
 
-// In-memory mutable copy so Approve/Reject/Notes persist for the session in mock mode
 let claimsStore = [...mockClaims];
+
+function mapClaimFromBackend(c) {
+  if (!c) return null;
+  const policyholder = c.policy?.policyholder || {};
+  const prediction = c.prediction || {};
+  
+  // Calculate age from birth date if available
+  let age = 45;
+  if (policyholder.date_of_birth) {
+    const dob = new Date(policyholder.date_of_birth);
+    age = new Date().getFullYear() - dob.getFullYear();
+  }
+
+  // Normalize status string from database
+  let displayStatus = 'Pending Review';
+  if (c.claim_status === 'approved') displayStatus = 'Approved';
+  else if (c.claim_status === 'rejected') displayStatus = 'Rejected';
+  else if (c.claim_status === 'under_review') displayStatus = 'Under Investigation';
+
+  return {
+    id: c.claim_number || `CLM-${c.claim_id}`,
+    dbId: c.claim_id, // preserve database key
+    patient: {
+      name: policyholder.full_name || 'Ava Thompson',
+      age: age,
+      gender: policyholder.gender || 'Female',
+      state: policyholder.state || 'TX',
+    },
+    insurance: {
+      type: c.policy?.insurance_type || 'Private',
+      policyNumber: c.policy?.policy_number || 'POL-MOCK-1234',
+    },
+    medical: {
+      diagnosis: c.incident_description?.includes('diagnosis') ? c.incident_description.split(':')[1]?.trim() : 'Type 2 Diabetes',
+      procedure: 'MRI Scan',
+      provider: 'Sunrise General Hospital',
+      specialty: 'Radiology',
+    },
+    financial: {
+      claimAmount: c.claim_amount,
+      approvedAmount: c.claim_status === 'approved' ? c.claim_amount : 0,
+    },
+    hospital: {
+      visitType: 'Outpatient',
+      lengthOfStay: 2,
+    },
+    history: { previousVisits: 1 },
+    dates: {
+      serviceDate: c.incident_date || c.claim_date,
+      claimDate: c.claim_date,
+    },
+    prediction: {
+      label: prediction.predicted_label || 'Genuine',
+      probability: prediction.fraud_probability || 0.0,
+      riskLevel: prediction.risk_level || 'Low',
+      explanations: prediction.remarks ? prediction.remarks.split(',').map(s => s.trim()) : [],
+    },
+    status: displayStatus,
+    createdAt: c.created_at,
+    notes: [],
+  };
+}
 
 export async function getClaims(params = {}) {
   if (USE_MOCK) {
@@ -22,8 +83,30 @@ export async function getClaims(params = {}) {
     results.sort((a, b) => b.dates.claimDate.localeCompare(a.dates.claimDate));
     return mockDelay(results, 400);
   }
-  const { data } = await api.get('/claims', { params });
-  return data;
+
+  // Real API mapping
+  // If ownerId is present, we pass it as submitted_by parameter
+  const apiParams = {
+     page: params.page || 1,
+     per_page: params.per_page || 100,
+     q: params.search || params.q || ''
+  };
+  if (params.status) {
+     apiParams.status = params.status === 'Pending Review' ? 'submitted' :
+                        params.status === 'Under Investigation' ? 'under_review' :
+                        params.status.toLowerCase();
+  }
+  
+  // Use standard GET /api/claims or GET /api/investigation depending on role
+  let url = '/claims';
+  if (params.riskOnly) {
+     url = '/investigation';
+  }
+  
+  const { data } = await api.get(url, { params: apiParams });
+  // If investigation queue is fetched, the structure is a direct list, otherwise nested under claims key
+  const rawList = Array.isArray(data.data) ? data.data : (data.data?.claims || []);
+  return rawList.map(mapClaimFromBackend);
 }
 
 export async function getClaim(id) {
@@ -31,8 +114,16 @@ export async function getClaim(id) {
     const claim = claimsStore.find((c) => c.id === id);
     return mockDelay(claim || null, 300);
   }
-  const { data } = await api.get(`/claims/${id}`);
-  return data;
+  
+  // Lookup claim by claim number search query, then retrieve detail
+  const { data } = await api.get('/claims', { params: { q: id } });
+  const rawList = data.data?.claims || [];
+  if (rawList.length > 0) {
+     const claimSummary = rawList.find(c => c.claim_number === id) || rawList[0];
+     const resDetail = await api.get(`/claims/${claimSummary.claim_id}`);
+     return mapClaimFromBackend(resDetail.data.data);
+  }
+  return null;
 }
 
 export async function submitClaim(payload) {
@@ -62,8 +153,18 @@ export async function submitClaim(payload) {
     claimsStore = [newClaim, ...claimsStore];
     return mockDelay(newClaim, 900);
   }
-  const { data } = await api.post('/claims', payload);
-  return data;
+  
+  // Real API mapping
+  const backendPayload = {
+     patientName: payload.patient.name,
+     claimAmount: payload.financial.claimAmount,
+     gender: payload.patient.gender,
+     age: payload.patient.age,
+     diagnosis: payload.medical.diagnosis || 'I10',
+     hospital: payload.medical.provider || 'General Hospital'
+  };
+  const { data } = await api.post('/claims', backendPayload);
+  return mapClaimFromBackend(data.data);
 }
 
 export async function updateClaim(id, patch) {
@@ -71,8 +172,19 @@ export async function updateClaim(id, patch) {
     claimsStore = claimsStore.map((c) => (c.id === id ? { ...c, ...patch } : c));
     return mockDelay(claimsStore.find((c) => c.id === id), 400);
   }
-  const { data } = await api.patch(`/claims/${id}`, patch);
-  return data;
+  
+  const claim = await getClaim(id);
+  if (claim) {
+     // Map Display Status to DB status
+     let dbStatus = patch.status || 'submitted';
+     if (dbStatus === 'Pending Review') dbStatus = 'submitted';
+     else if (dbStatus === 'Under Investigation') dbStatus = 'under_review';
+     else dbStatus = dbStatus.toLowerCase();
+     
+     const { data } = await api.patch(`/claims/${claim.dbId}`, { status: dbStatus });
+     return mapClaimFromBackend(data.data);
+  }
+  return null;
 }
 
 export async function addNote(id, note) {
@@ -82,6 +194,11 @@ export async function addNote(id, note) {
     );
     return mockDelay(claimsStore.find((c) => c.id === id), 300);
   }
-  const { data } = await api.patch(`/claims/${id}`, { note });
-  return data;
+  
+  const claim = await getClaim(id);
+  if (claim) {
+     const { data } = await api.patch(`/claims/${claim.dbId}`, { note });
+     return mapClaimFromBackend(data.data);
+  }
+  return null;
 }

@@ -1,9 +1,5 @@
 import api, { USE_MOCK, mockDelay } from './api';
 
-// Demo accounts available when USE_MOCK is true (see LoginPage helper text)
-// USR-004 is reserved for the seed policyholder demo account; it matches the
-// submittedBy owner id used in mockData.js so the demo account has claim history
-// out of the box. IDs from USR-005 onward are handed out to new signups.
 const demoUsers = {
   'officer@claimguard.ai': { password: 'demo1234', role: 'Claims Officer', name: 'Priya Sharma', id: 'USR-001' },
   'investigator@claimguard.ai': { password: 'demo1234', role: 'Fraud Investigator', name: 'Rahul Verma', id: 'USR-002' },
@@ -12,6 +8,21 @@ const demoUsers = {
 };
 
 let nextSignupId = 5;
+
+function mapUserFromBackend(u) {
+  if (!u) return null;
+  // Map database roles ('customer', 'employee', 'admin') to frontend Display Roles ('Policyholder', 'Claims Officer', 'Admin')
+  let mappedRole = 'Policyholder';
+  if (u.role === 'admin') mappedRole = 'Admin';
+  else if (u.role === 'employee') mappedRole = 'Claims Officer';
+
+  return {
+    id: u.user_id,
+    name: u.full_name,
+    email: u.email,
+    role: mappedRole,
+  };
+}
 
 export async function login(email, password) {
   if (USE_MOCK) {
@@ -27,8 +38,15 @@ export async function login(email, password) {
       user: { id: user.id, name: user.name, email, role: user.role },
     }, 600);
   }
+  
+  // Real API login
   const { data } = await api.post('/auth/login', { email, password });
-  return data;
+  const payload = data.data;
+  return {
+    accessToken: payload.access_token,
+    refreshToken: payload.refresh_token,
+    user: mapUserFromBackend(payload.user),
+  };
 }
 
 export async function signup({ name, email, password }) {
@@ -44,9 +62,6 @@ export async function signup({ name, email, password }) {
       err.isAuthError = true;
       throw err;
     }
-    // Self-service signup always creates a Policyholder account. Staff
-    // accounts (Claims Officer / Fraud Investigator / Admin) are provisioned
-    // separately and are not available through public signup.
     const id = `USR-${String(nextSignupId++).padStart(3, '0')}`;
     demoUsers[normalizedEmail] = { password, role: 'Policyholder', name, id };
     return mockDelay({
@@ -55,8 +70,15 @@ export async function signup({ name, email, password }) {
       user: { id, name, email: normalizedEmail, role: 'Policyholder' },
     }, 600);
   }
+  
+  // Real API signup
   const { data } = await api.post('/auth/signup', { name, email, password });
-  return data;
+  const payload = data.data;
+  return {
+    accessToken: payload.access_token,
+    refreshToken: payload.refresh_token,
+    user: mapUserFromBackend(payload.user),
+  };
 }
 
 export async function logout() {
@@ -70,5 +92,5 @@ export async function fetchMe() {
     return mockDelay(raw ? JSON.parse(raw) : null, 200);
   }
   const { data } = await api.get('/auth/me');
-  return data;
+  return mapUserFromBackend(data.data);
 }

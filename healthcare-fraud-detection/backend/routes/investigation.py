@@ -9,16 +9,18 @@ investigation_bp = Blueprint("investigation", __name__)
 
 @investigation_bp.route("", methods=["GET"])
 @jwt_required()
-@role_required("admin", "investigator", "supervisor")
+@role_required("admin", "employee")
 def get_investigation_queue():
     """
     GET /api/investigation
-    Retrieves the queue of claims flagged as high-risk that require manual review.
-    Queries Supabase REST API and performs processing in Python.
+    Retrieves the queue of claims flagged as high or medium risk that require manual review.
+    Queries Supabase REST relation mappings.
     """
     try:
-        # Fetch predictions with risk_level High and nested claim data
-        res = supabase.table("fraud_predictions").select("*, claim:insurance_claims(*)").eq("risk_level", "High").execute()
+        # Fetch predictions with risk_level in High/Medium and nested claim data
+        res = supabase.table("fraud_predictions").select(
+            "*, claim:insurance_claims(*, policy:insurance_policies(*, policyholder:policyholders(*)))"
+        ).in_("risk_level", ["High", "Medium"]).execute()
         
         claims_list = []
         if res.data:
@@ -46,6 +48,8 @@ def get_investigation_queue():
                         
                         claim_dict["police_report_available"] = bool(claim_dict.get("police_report_available"))
                         claim_dict["prediction"] = pred_dict
+                        # Embed policy details if nested
+                        claim_dict["policy_embedded"] = claim_data.get("policy")
                         claims_list.append(claim_dict)
             
         return success_response(

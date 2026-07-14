@@ -13,10 +13,12 @@ class SupabasePagination:
 
 def find_claim_by_id(claim_id: int) -> InsuranceClaim:
     """
-    Retrieve an insurance claim by its unique ID, fetching its nested prediction.
+    Retrieve an insurance claim by its unique ID, fetching its nested prediction and policy/policyholder relation.
     """
     try:
-        res = supabase.table("insurance_claims").select("*, prediction:fraud_predictions(*)").eq("claim_id", claim_id).execute()
+        res = supabase.table("insurance_claims").select(
+            "*, prediction:fraud_predictions(*), policy:insurance_policies(*, policyholder:policyholders(*))"
+        ).eq("claim_id", claim_id).execute()
         if res.data:
             claim_data = res.data[0]
             predictions = claim_data.get("prediction") or claim_data.get("fraud_predictions")
@@ -29,6 +31,8 @@ def find_claim_by_id(claim_id: int) -> InsuranceClaim:
             
             claim = InsuranceClaim.from_dict(claim_data)
             claim.prediction = prediction_obj
+            # Embed policy/policyholder dict details directly onto the object
+            claim.policy_embedded = claim_data.get("policy")
             return claim
     except Exception as e:
         print(f"Error finding claim by ID: {e}")
@@ -37,12 +41,14 @@ def find_claim_by_id(claim_id: int) -> InsuranceClaim:
 
 def find_claim_by_number(claim_number: str) -> InsuranceClaim:
     """
-    Retrieve an insurance claim by its unique claim number.
+    Retrieve an insurance claim by its unique claim number, fetching nested relation details.
     """
     if not claim_number:
         return None
     try:
-        res = supabase.table("insurance_claims").select("*, prediction:fraud_predictions(*)").eq("claim_number", claim_number.strip()).execute()
+        res = supabase.table("insurance_claims").select(
+            "*, prediction:fraud_predictions(*), policy:insurance_policies(*, policyholder:policyholders(*))"
+        ).eq("claim_number", claim_number.strip()).execute()
         if res.data:
             claim_data = res.data[0]
             predictions = claim_data.get("prediction") or claim_data.get("fraud_predictions")
@@ -55,6 +61,7 @@ def find_claim_by_number(claim_number: str) -> InsuranceClaim:
             
             claim = InsuranceClaim.from_dict(claim_data)
             claim.prediction = prediction_obj
+            claim.policy_embedded = claim_data.get("policy")
             return claim
     except Exception as e:
         print(f"Error finding claim by number: {e}")
@@ -88,7 +95,6 @@ def save_claim(claim: InsuranceClaim) -> InsuranceClaim:
             
         if res.data:
             saved_claim = InsuranceClaim.from_dict(res.data[0])
-            # Preserve prediction if it was present
             saved_claim.prediction = claim.prediction
             return saved_claim
     except Exception as e:
@@ -101,9 +107,14 @@ def get_paginated_claims(filters: dict = None, sort_by: str = "created_at", orde
     Query, filter, sort, and paginate claim records from Supabase.
     """
     try:
-        query = supabase.table("insurance_claims").select("*, prediction:fraud_predictions(*)", count="exact")
+        query = supabase.table("insurance_claims").select(
+            "*, prediction:fraud_predictions(*), policy:insurance_policies(*, policyholder:policyholders(*))",
+            count="exact"
+        )
         
         if filters:
+            if "submitted_by" in filters and filters["submitted_by"] is not None:
+                query = query.eq("submitted_by", filters["submitted_by"])
             if "claim_status" in filters and filters["claim_status"]:
                 query = query.eq("claim_status", filters["claim_status"])
             if "claim_type" in filters and filters["claim_type"]:
@@ -112,7 +123,6 @@ def get_paginated_claims(filters: dict = None, sort_by: str = "created_at", orde
                 search = f"%{filters['search_query']}%"
                 query = query.or_(f"claim_number.ilike.{search},incident_location.ilike.{search}")
 
-        # Map to proper sort column
         if sort_by == "created_at":
             sort_by = "created_at"
             
@@ -135,6 +145,7 @@ def get_paginated_claims(filters: dict = None, sort_by: str = "created_at", orde
             
             claim = InsuranceClaim.from_dict(claim_data)
             claim.prediction = prediction_obj
+            claim.policy_embedded = claim_data.get("policy")
             items.append(claim)
             
         total = res.count if res.count is not None else len(items)

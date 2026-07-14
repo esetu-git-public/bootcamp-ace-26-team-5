@@ -9,12 +9,12 @@ reports_bp = Blueprint("reports", __name__)
 
 @reports_bp.route("", methods=["GET"])
 @jwt_required()
-@role_required("admin", "supervisor")
+@role_required("admin")
 def generate_reports():
     """
     GET /api/reports
     Compiles detailed analytical reports for export (claims breakdown, fraud rates, and investigation queues).
-    Queries Supabase REST API and performs processing in Python.
+    Restricted to Admins.
     """
     try:
         # 1. Claims Report Data
@@ -45,7 +45,6 @@ def generate_reports():
             for row in res_preds.data:
                 claim_data = row.get("claim")
                 if claim_data:
-                    # If claim is nested inside a list (sometimes PostgREST does this depending on relations)
                     if isinstance(claim_data, list) and len(claim_data) > 0:
                         claim_data = claim_data[0]
                     
