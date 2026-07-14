@@ -1,7 +1,7 @@
 import re
 
 EMAIL_REGEX = re.compile(r"^[\w\.-]+@[\w\.-]+\.\w+$")
-ALLOWED_ROLES = {"admin", "employee", "investigator", "supervisor", "customer"}
+ALLOWED_ROLES = {"admin", "employee", "customer"}
 
 def validate_registration_data(data: dict) -> tuple[bool, str]:
     """
@@ -11,10 +11,10 @@ def validate_registration_data(data: dict) -> tuple[bool, str]:
     if not data:
         return False, "Request payload is empty"
         
-    full_name = data.get("full_name")
+    full_name = data.get("full_name") or data.get("name")
     email = data.get("email")
     password = data.get("password")
-    role = data.get("role", "employee")
+    role = data.get("role", "customer")
 
     if not full_name or not full_name.strip():
         return False, "Full name is required"

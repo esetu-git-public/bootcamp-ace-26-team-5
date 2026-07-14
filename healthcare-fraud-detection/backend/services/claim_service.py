@@ -1,7 +1,7 @@
 from datetime import datetime, date, timedelta
 import random
 
-from models import InsuranceClaim, Policyholder, InsurancePolicy
+from models import InsuranceClaim, Policyholder, InsurancePolicy, FraudPrediction
 from repositories.claim_repository import (
     find_claim_by_id,
     save_claim as db_save_claim,
@@ -160,6 +160,16 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
 
     # Execute ML scoring & save prediction record
     prediction_result = run_claim_prediction(claim.claim_id, ml_payload)
+    
+    # Instantiate and assign prediction on the claim object
+    claim.prediction = FraudPrediction(
+        claim_id=claim.claim_id,
+        predicted_label=prediction_result["predicted_label"],
+        fraud_probability=prediction_result["fraud_probability"],
+        risk_level=prediction_result["risk_level"],
+        model_version=prediction_result["model_version"],
+        remarks=", ".join(prediction_result["reasons"])
+    )
     
     # 3. Apply Business Rules Engine based on prediction risk score
     # Auto Approve (0-30%)

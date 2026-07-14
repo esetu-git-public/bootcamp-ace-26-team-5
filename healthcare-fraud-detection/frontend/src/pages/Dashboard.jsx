@@ -1,351 +1,170 @@
-import {
-  FaFileInvoice,
-  FaUserCheck,
-  FaExclamationTriangle,
-  FaSearch,
-} from "react-icons/fa";
-import MainLayout from "../layouts/MainLayout";
+import { useEffect, useState } from 'react';
+import { Grid, Card, Box, Typography, Stack, Table, TableHead, TableRow, TableCell, TableBody, LinearProgress, Chip } from '@mui/material';
+import { LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import HourglassEmptyOutlinedIcon from '@mui/icons-material/HourglassEmptyOutlined';
+import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
+import PercentOutlinedIcon from '@mui/icons-material/PercentOutlined';
+import DashboardLayout from '../components/layout/DashboardLayout';
+import KpiCard from '../components/common/KpiCard';
+import { RiskChip, StatusChip } from '../components/common/RiskChip';
+import EmptyState from '../components/common/EmptyState';
+import * as dashboardService from '../services/dashboardService';
+import { useNavigate } from 'react-router-dom';
+import theme, { riskColor } from '../theme/theme';
+import { useAuth, ROLES } from '../context/AuthContext';
+import UserDashboard from './UserDashboard';
+
+const STATUS_COLORS = ['#1E9E6B', '#D8A400', '#1B4F9C', '#D6483C'];
 
 export default function Dashboard() {
-  const cards = [
-    {
-      title: "Total Claims",
-      value: "1,250",
-      color: "#2563eb",
-      icon: <FaFileInvoice size={28} />,
-    },
-    {
-      title: "Approved",
-      value: "1,100",
-      color: "#16a34a",
-      icon: <FaUserCheck size={28} />,
-    },
-    {
-      title: "Fraud Detected",
-      value: "85",
-      color: "#dc2626",
-      icon: <FaExclamationTriangle size={28} />,
-    },
-    {
-      title: "Pending Review",
-      value: "65",
-      color: "#f59e0b",
-      icon: <FaSearch size={28} />,
-    },
-  ];
+  const { user } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Policyholders get a scoped dashboard showing only their own claims.
+  const isPolicyholder = user?.role === ROLES.POLICYHOLDER;
+
+  useEffect(() => {
+    if (isPolicyholder) return;
+    dashboardService.getDashboard().then((d) => { setData(d); setLoading(false); });
+  }, [isPolicyholder]);
+
+  if (isPolicyholder) {
+    return <UserDashboard />;
+  }
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Dashboard">
+        <LinearProgress />
+      </DashboardLayout>
+    );
+  }
+
+  const { kpis, monthlyClaims, riskDistribution, statusDistribution, recentClaims } = data;
 
   return (
-    <MainLayout>
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#f5f7fb",
-          padding: "30px",
-        }}
-      >
-        <h1
-          style={{
-            marginBottom: "5px",
-            color: "#1e293b",
-          }}
-        >
-          Healthcare Fraud Detection Dashboard
-        </h1>
+    <DashboardLayout title="Dashboard">
+      <Grid container spacing={2.5}>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KpiCard label="Total Claims" value={kpis.total} icon={<DescriptionOutlinedIcon />} accent={theme.tokens.blue} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KpiCard label="Fraud Claims" value={kpis.fraud} icon={<ReportProblemOutlinedIcon />} accent={theme.tokens.high} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KpiCard label="Genuine Claims" value={kpis.genuine} icon={<CheckCircleOutlineIcon />} accent={theme.tokens.low} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KpiCard label="Pending Claims" value={kpis.pending} icon={<HourglassEmptyOutlinedIcon />} accent={theme.tokens.medium} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KpiCard label="High Risk" value={kpis.highRisk} icon={<PriorityHighOutlinedIcon />} accent={theme.tokens.high} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <KpiCard label="Fraud %" value={kpis.fraudPct} suffix="%" icon={<PercentOutlinedIcon />} accent={theme.tokens.teal} />
+        </Grid>
 
-        <p
-          style={{
-            color: "#64748b",
-            marginBottom: "30px",
-          }}
-        >
-          Welcome back, Admin 👋
-        </p>
+        <Grid item xs={12} md={7}>
+          <Card sx={{ p: 2.5, height: 340 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Monthly Claims &amp; Fraud Trend</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <AreaChart data={monthlyClaims}>
+                <defs>
+                  <linearGradient id="claimsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={theme.tokens.blue} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={theme.tokens.blue} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDF1F5" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                <Area type="monotone" dataKey="claims" name="Total Claims" stroke={theme.tokens.blue} fill="url(#claimsGrad)" strokeWidth={2} />
+                <Line type="monotone" dataKey="fraud" name="Fraud Claims" stroke={theme.tokens.high} strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
 
-        {/* Dashboard Cards */}
+        <Grid item xs={12} md={5}>
+          <Card sx={{ p: 2.5, height: 340 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Risk Distribution</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <PieChart>
+                <Pie data={riskDistribution} dataKey="count" nameKey="level" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                  {riskDistribution.map((entry) => (
+                    <Cell key={entry.level} fill={riskColor(entry.level)} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-            gap: "20px",
-          }}
-        >
-          {cards.map((card, index) => (
-            <div
-              key={index}
-              style={{
-                background: "#fff",
-                padding: "22px",
-                borderRadius: "16px",
-                boxShadow: "0 8px 20px rgba(0,0,0,.08)",
-                transition: ".3s",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <p
-                    style={{
-                      color: "#64748b",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    {card.title}
-                  </p>
+        <Grid item xs={12} md={5}>
+          <Card sx={{ p: 2.5, height: 320 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Claim Status</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <BarChart data={statusDistribution} layout="vertical" margin={{ left: 24 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDF1F5" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="status" tick={{ fontSize: 11 }} width={110} />
+                <Tooltip />
+                <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                  {statusDistribution.map((entry, idx) => (
+                    <Cell key={entry.status} fill={STATUS_COLORS[idx % STATUS_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
 
-                  <h2
-                    style={{
-                      margin: 0,
-                    }}
-                  >
-                    {card.value}
-                  </h2>
-                </div>
-
-                <div
-                  style={{
-                    background: `${card.color}20`,
-                    padding: "15px",
-                    borderRadius: "12px",
-                    color: card.color,
-                  }}
-                >
-                  {card.icon}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Recent Claims */}
-
-        <div
-          style={{
-            marginTop: "40px",
-            background: "#fff",
-            borderRadius: "16px",
-            padding: "25px",
-            boxShadow: "0 8px 20px rgba(0,0,0,.08)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "20px",
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                }}
-              >
-                Recent Claims
-              </h2>
-
-              <p
-                style={{
-                  color: "#64748b",
-                  marginTop: "5px",
-                }}
-              >
-                Latest insurance claims received
-              </p>
-            </div>
-
-            <button
-              style={{
-                background: "#2563eb",
-                color: "#fff",
-                border: "none",
-                padding: "10px 18px",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
-              View All
-            </button>
-          </div>
-
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-            }}
-          >
-            <thead>
-              <tr
-                style={{
-                  background: "#f8fafc",
-                }}
-              >
-                <th style={styles.th}>Claim ID</th>
-                <th style={styles.th}>Patient</th>
-                <th style={styles.th}>Amount</th>
-                <th style={styles.th}>Risk</th>
-                <th style={styles.th}>Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td style={styles.td}>CLM001</td>
-                <td style={styles.td}>John Doe</td>
-                <td style={styles.td}>$4,500</td>
-
-                <td style={styles.td}>
-                  <span style={styles.highRisk}>High</span>
-                </td>
-
-                <td style={styles.td}>
-                  <span style={styles.pending}>Pending</span>
-                </td>
-              </tr>
-
-              <tr>
-                <td style={styles.td}>CLM002</td>
-                <td style={styles.td}>Sarah Smith</td>
-                <td style={styles.td}>$2,250</td>
-
-                <td style={styles.td}>
-                  <span style={styles.lowRisk}>Low</span>
-                </td>
-
-                <td style={styles.td}>
-                  <span style={styles.approved}>Approved</span>
-                </td>
-              </tr>
-
-              <tr>
-                <td style={styles.td}>CLM003</td>
-                <td style={styles.td}>David Miller</td>
-                <td style={styles.td}>$6,850</td>
-
-                <td style={styles.td}>
-                  <span style={styles.mediumRisk}>Medium</span>
-                </td>
-
-                <td style={styles.td}>
-                  <span style={styles.review}>Under Review</span>
-                </td>
-              </tr>
-
-              <tr>
-                <td style={styles.td}>CLM004</td>
-                <td style={styles.td}>Emily Clark</td>
-                <td style={styles.td}>$8,200</td>
-
-                <td style={styles.td}>
-                  <span style={styles.highRisk}>High</span>
-                </td>
-
-                <td style={styles.td}>
-                  <span style={styles.rejected}>Rejected</span>
-                </td>
-              </tr>
-
-              <tr>
-                <td style={styles.td}>CLM005</td>
-                <td style={styles.td}>Michael Brown</td>
-                <td style={styles.td}>$3,100</td>
-
-                <td style={styles.td}>
-                  <span style={styles.lowRisk}>Low</span>
-                </td>
-
-                <td style={styles.td}>
-                  <span style={styles.approved}>Approved</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </MainLayout>
+        <Grid item xs={12} md={7}>
+          <Card sx={{ p: 2.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+              <Typography variant="subtitle1">Recent Claims</Typography>
+              <Chip size="small" label="View all" onClick={() => navigate('/claims')} sx={{ cursor: 'pointer' }} />
+            </Stack>
+            {recentClaims.length === 0 ? (
+              <EmptyState title="No claims yet" description="Submitted claims will appear here." />
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Claim ID</TableCell>
+                    <TableCell>Patient</TableCell>
+                    <TableCell>Amount</TableCell>
+                    <TableCell>Risk</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Date</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {recentClaims.map((c) => (
+                    <TableRow key={c.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/claims/${c.id}`)}>
+                      <TableCell sx={{ fontWeight: 600 }}>{c.id}</TableCell>
+                      <TableCell>{c.patient.name}</TableCell>
+                      <TableCell>${c.financial.claimAmount.toLocaleString()}</TableCell>
+                      <TableCell><RiskChip level={c.prediction.riskLevel} /></TableCell>
+                      <TableCell><StatusChip status={c.status} /></TableCell>
+                      <TableCell>{c.dates.claimDate}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </Grid>
+      </Grid>
+    </DashboardLayout>
   );
 }
-
-const styles = {
-  th: {
-    padding: "15px",
-    textAlign: "left",
-    color: "#475569",
-    fontWeight: "600",
-    borderBottom: "2px solid #e2e8f0",
-  },
-
-  td: {
-    padding: "16px",
-    borderBottom: "1px solid #e2e8f0",
-  },
-
-  highRisk: {
-    background: "#fee2e2",
-    color: "#dc2626",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    fontWeight: "bold",
-    fontSize: "14px",
-  },
-
-  mediumRisk: {
-    background: "#fef3c7",
-    color: "#d97706",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    fontWeight: "bold",
-    fontSize: "14px",
-  },
-
-  lowRisk: {
-    background: "#dcfce7",
-    color: "#16a34a",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    fontWeight: "bold",
-    fontSize: "14px",
-  },
-
-  approved: {
-    background: "#dcfce7",
-    color: "#16a34a",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    fontWeight: "600",
-    fontSize: "14px",
-  },
-
-  pending: {
-    background: "#fef3c7",
-    color: "#d97706",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    fontWeight: "600",
-    fontSize: "14px",
-  },
-
-  review: {
-    background: "#dbeafe",
-    color: "#2563eb",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    fontWeight: "600",
-    fontSize: "14px",
-  },
-
-  rejected: {
-    background: "#fee2e2",
-    color: "#dc2626",
-    padding: "6px 14px",
-    borderRadius: "20px",
-    fontWeight: "600",
-    fontSize: "14px",
-  },
-};

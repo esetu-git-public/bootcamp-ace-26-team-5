@@ -40,4 +40,8 @@ database/*.db
 *.db
 
 # Python bytecode
+# Python bytecode
 **/__pycache__/
+
+# Scratch directory
+scratch/

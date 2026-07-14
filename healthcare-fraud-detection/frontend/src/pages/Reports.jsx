@@ -1,137 +1,132 @@
-import MainLayout from "../layouts/MainLayout";
+import { useEffect, useState } from 'react';
+import { Card, Grid, Typography, Stack, Button, LinearProgress } from '@mui/material';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
+} from 'recharts';
+import DashboardLayout from '../components/layout/DashboardLayout';
+import * as dashboardService from '../services/dashboardService';
+import theme, { riskColor } from '../theme/theme';
 
-const monthlyData = [
-  { month: "Jan", claims: 120 },
-  { month: "Feb", claims: 160 },
-  { month: "Mar", claims: 140 },
-  { month: "Apr", claims: 190 },
-  { month: "May", claims: 220 },
-  { month: "Jun", claims: 180 },
-];
+const PALETTE = [theme.tokens.blue, theme.tokens.teal, '#7C9CBF', '#B7C9DE', '#0B2545'];
 
-const pieData = [
-  { name: "Approved", value: 1100 },
-  { name: "Fraud", value: 85 },
-  { name: "Pending", value: 65 },
-];
-
-const COLORS = ["#22c55e", "#ef4444", "#f59e0b"];
-
-export default function Reports() {
-  return (
-    <MainLayout>
-      <h1>Reports & Analytics</h1>
-
-      <p style={{ color: "#666", marginBottom: "25px" }}>
-        Healthcare Insurance Claim Statistics
-      </p>
-
-      {/* Summary Cards */}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-          gap: "20px",
-          marginBottom: "30px",
-        }}
-      >
-        <Card title="Total Claims" value="1250" color="#2563eb" />
-        <Card title="Approved" value="1100" color="#22c55e" />
-        <Card title="Fraud Cases" value="85" color="#ef4444" />
-        <Card title="Pending" value="65" color="#f59e0b" />
-      </div>
-
-      {/* Charts */}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: "25px",
-        }}
-      >
-        <div
-          style={{
-            background: "white",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow: "0 5px 10px rgba(0,0,0,.08)",
-          }}
-        >
-          <h3>Monthly Claims</h3>
-
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="claims" fill="#2563eb" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div
-          style={{
-            background: "white",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow: "0 5px 10px rgba(0,0,0,.08)",
-          }}
-        >
-          <h3>Claim Status</h3>
-
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                outerRadius={90}
-                label
-              >
-                {pieData.map((entry, index) => (
-                  <Cell
-                    key={index}
-                    fill={COLORS[index]}
-                  />
-                ))}
-              </Pie>
-
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </MainLayout>
-  );
+function downloadCsv(rows, filename) {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => `"${r[h]}"`).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
-function Card({ title, value, color }) {
-  return (
-    <div
-      style={{
-        background: "white",
-        padding: "20px",
-        borderRadius: "12px",
-        boxShadow: "0 5px 10px rgba(0,0,0,.08)",
-      }}
-    >
-      <h4 style={{ color: "#666" }}>{title}</h4>
+export default function Reports() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-      <h1 style={{ color, marginTop: "10px" }}>{value}</h1>
-    </div>
+  useEffect(() => {
+    dashboardService.getReports().then((d) => { setData(d); setLoading(false); });
+  }, []);
+
+  if (loading) {
+    return <DashboardLayout title="Reports"><LinearProgress /></DashboardLayout>;
+  }
+
+  const { monthlyClaims, riskDistribution, providerDistribution, insuranceDistribution, kpis } = data;
+
+  const exportCsv = () => downloadCsv(
+    monthlyClaims.map((m) => ({ Month: m.month, TotalClaims: m.claims, FraudClaims: m.fraud })),
+    'claimguard_monthly_report.csv'
+  );
+
+  const exportPdf = () => window.print();
+
+  return (
+    <DashboardLayout title="Reports">
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2.5 }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {kpis.total} claims analyzed · {kpis.fraudPct}% flagged as fraud
+        </Typography>
+        <Stack direction="row" spacing={1.5}>
+          <Button variant="outlined" startIcon={<FileDownloadOutlinedIcon />} onClick={exportCsv}>Export CSV</Button>
+          <Button variant="contained" startIcon={<PictureAsPdfOutlinedIcon />} onClick={exportPdf}>Export PDF</Button>
+        </Stack>
+      </Stack>
+
+      <Grid container spacing={2.5}>
+        <Grid item xs={12} md={7}>
+          <Card sx={{ p: 2.5, height: 340 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Monthly Claims Trend</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <LineChart data={monthlyClaims}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDF1F5" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="claims" name="Total Claims" stroke={theme.tokens.blue} strokeWidth={2} />
+                <Line type="monotone" dataKey="fraud" name="Fraud %" stroke={theme.tokens.high} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={5}>
+          <Card sx={{ p: 2.5, height: 340 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Risk Levels</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <PieChart>
+                <Pie data={riskDistribution} dataKey="count" nameKey="level" outerRadius={90} label>
+                  {riskDistribution.map((entry) => (
+                    <Cell key={entry.level} fill={riskColor(entry.level)} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card sx={{ p: 2.5, height: 340 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Provider Distribution</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <BarChart data={providerDistribution} margin={{ bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDF1F5" />
+                <XAxis dataKey="provider" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" interval={0} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="claims" radius={[6, 6, 0, 0]}>
+                  {providerDistribution.map((_, idx) => (
+                    <Cell key={idx} fill={PALETTE[idx % PALETTE.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card sx={{ p: 2.5, height: 340 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Insurance Type Distribution</Typography>
+            <ResponsiveContainer width="100%" height="85%">
+              <PieChart>
+                <Pie data={insuranceDistribution} dataKey="claims" nameKey="type" outerRadius={90} label>
+                  {insuranceDistribution.map((_, idx) => (
+                    <Cell key={idx} fill={PALETTE[idx % PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+      </Grid>
+    </DashboardLayout>
   );
 }

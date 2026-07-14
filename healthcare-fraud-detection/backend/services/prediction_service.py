@@ -1,12 +1,12 @@
-import sys
 import os
+import sys
 from pathlib import Path
 
-# Dynamically append the ML directory (sibling of backend) to python's import path
+# Resolve prediction path to ml/inference/v1/
 BASE_DIR = Path(__file__).resolve().parent.parent
-ML_DIR = os.path.abspath(BASE_DIR / ".." / "ml")
-if ML_DIR not in sys.path:
-    sys.path.append(ML_DIR)
+ML_INFERENCE_DIR = os.path.abspath(BASE_DIR / ".." / "ml" / "inference" / "v1")
+if ML_INFERENCE_DIR not in sys.path:
+    sys.path.append(ML_INFERENCE_DIR)
 
 from predict import predict_claim
 from models import FraudPrediction
@@ -15,10 +15,10 @@ from utils.logger import logger
 
 def run_claim_prediction(claim_id: int, claim_payload: dict) -> dict:
     """
-    Execute machine learning prediction for an insurance claim,
+    Execute Keras Deep Learning prediction for an insurance claim,
     save the prediction outputs to the database, and return the scored result.
     """
-    logger.info(f"Executing fraud prediction for claim ID: {claim_id}")
+    logger.info(f"Executing deep learning fraud prediction for claim ID: {claim_id}")
     
     try:
         # Run ML model inference

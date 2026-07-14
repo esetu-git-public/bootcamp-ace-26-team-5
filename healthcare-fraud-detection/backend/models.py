@@ -193,7 +193,8 @@ class InsuranceClaim:
             "witnesses_count": self.witnesses_count,
             "claim_status": self.claim_status,
             "submitted_by": self.submitted_by,
-            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at
+            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
+            "policy": getattr(self, "policy_embedded", None)
         }
 
 
@@ -227,15 +228,21 @@ class FraudPrediction:
         p_date = self.prediction_date
         if isinstance(self.prediction_date, (date, datetime)):
             p_date = self.prediction_date.isoformat()
+        remarks_list = [r.strip() for r in (self.remarks or "").split(",") if r.strip()]
         return {
             "prediction_id": self.prediction_id,
             "claim_id": self.claim_id,
             "predicted_label": self.predicted_label,
+            "predictedLabel": self.predicted_label,
             "fraud_probability": self.fraud_probability,
+            "probability": self.fraud_probability,
             "risk_level": self.risk_level,
+            "riskLevel": self.risk_level,
             "model_version": self.model_version,
+            "modelVersion": self.model_version,
             "prediction_date": p_date,
-            "remarks": self.remarks
+            "remarks": self.remarks,
+            "explanations": remarks_list
         }
 
 

@@ -1,5 +1,5 @@
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 
 from repositories.claim_repository import (
     find_claim_by_id,
@@ -57,7 +57,12 @@ def get_claims():
     """
     GET /api/claims
     Queries all claims. Supports pagination, sorting, status filtering, and query searching.
+    Enforces customer isolation.
     """
+    user_id = int(get_jwt_identity())
+    claims_payload = get_jwt()
+    user_role = claims_payload.get("role")
+
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 10, type=int)
     sort_by = request.args.get("sort_by", "created_at", type=str)
@@ -72,6 +77,8 @@ def get_claims():
         "claim_type": claim_type,
         "search_query": search_query
     }
+    if user_role == "customer":
+        filters["submitted_by"] = user_id
 
     try:
         pagination = get_paginated_claims(
@@ -110,10 +117,18 @@ def get_claim_details(claim_id):
     """
     GET /api/claims/{id}
     Retrieves detailed info of a single claim along with its prediction.
+    Enforces tenant isolation.
     """
+    user_id = int(get_jwt_identity())
+    claims_payload = get_jwt()
+    user_role = claims_payload.get("role")
+
     claim = find_claim_by_id(claim_id)
     if not claim:
         return error_response(message="Claim not found", status_code=404)
+
+    if user_role == "customer" and claim.submitted_by != user_id:
+        return error_response(message="Access forbidden: this claim belongs to another user", status_code=403)
 
     claim_dict = claim.to_dict()
     if claim.prediction:
@@ -123,21 +138,29 @@ def get_claim_details(claim_id):
 
 
 @claim_bp.route("/<int:claim_id>/status", methods=["PATCH"])
+@claim_bp.route("/<int:claim_id>", methods=["PATCH"]) # Support both status path and straight ID path
 @jwt_required()
-@role_required("admin", "employee", "investigator", "supervisor")
+@role_required("admin", "employee")
 def update_claim_status(claim_id):
     """
-    PATCH /api/claims/{id}/status
+    PATCH /api/claims/{id}/status or PATCH /api/claims/{id}
     Updates the status of a claim (approved, rejected, under_review, submitted).
     Restricted to authorized roles.
     """
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True)
-    if not data or "status" not in data:
+    if not data:
+         return error_response("Payload is required", 400)
+    
+    new_status = data.get("status") or data.get("claim_status")
+    if not new_status:
         return error_response("Status field is required", 400)
 
-    new_status = data.get("status").strip().lower()
-    
+    new_status = new_status.strip().lower()
+    # Normalize frontend "Pending Review" -> "under_review", "Under Investigation" -> "under_review"
+    if new_status in ["pending review", "under investigation", "under_review"]:
+        new_status = "under_review"
+
     success, message = update_claim_status_service(claim_id, new_status, user_id)
     if not success:
         return error_response(message=message, status_code=400 if "Invalid" in message else 404)
@@ -169,6 +192,7 @@ def delete_claim(claim_id):
     log_event(
         action="CLAIM_DELETION",
         user_id=user_id,
+        claim_id=claim_id,
         details=f"Admin deleted claim ID {claim_id} (Claim number: {claim_num})."
     )
 
