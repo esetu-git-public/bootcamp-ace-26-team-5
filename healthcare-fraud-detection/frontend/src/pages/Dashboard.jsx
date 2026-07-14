@@ -25,13 +25,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Policyholders get a scoped dashboard showing only their own claims.
-  const isPolicyholder = user?.role === ROLES.POLICYHOLDER;
+  // Customers get a scoped dashboard showing only their own claims.
+  const isPolicyholder = user?.role === ROLES.CUSTOMER;
 
   useEffect(() => {
+    if (user?.role === ROLES.EMPLOYEE) {
+      navigate('/investigation', { replace: true });
+      return;
+    }
     if (isPolicyholder) return;
     dashboardService.getDashboard().then((d) => { setData(d); setLoading(false); });
-  }, [isPolicyholder]);
+  }, [isPolicyholder, user, navigate]);
 
   if (isPolicyholder) {
     return <UserDashboard />;

@@ -12,12 +12,12 @@ import { useAuth, ROLES } from '../../context/AuthContext';
 const DRAWER_WIDTH = 248;
 
 const navItems = [
-  { label: 'Dashboard', to: '/dashboard', icon: <DashboardOutlinedIcon />, roles: [ROLES.POLICYHOLDER, ROLES.OFFICER, ROLES.INVESTIGATOR, ROLES.ADMIN] },
-  { label: 'Submit Claim', to: '/claims/submit', icon: <NoteAddOutlinedIcon />, roles: [ROLES.POLICYHOLDER, ROLES.OFFICER] },
-  { label: 'Claim History', to: '/claims', labelByRole: { [ROLES.POLICYHOLDER]: 'My Claims' }, icon: <HistoryOutlinedIcon />, roles: [ROLES.POLICYHOLDER, ROLES.OFFICER, ROLES.INVESTIGATOR, ROLES.ADMIN] },
-  { label: 'Investigation', to: '/investigation', icon: <FindInPageOutlinedIcon />, roles: [ROLES.INVESTIGATOR, ROLES.ADMIN] },
-  { label: 'Reports', to: '/reports', icon: <BarChartOutlinedIcon />, roles: [ROLES.ADMIN, ROLES.INVESTIGATOR] },
-  { label: 'Notifications', to: '/notifications', icon: <NotificationsNoneOutlinedIcon />, roles: [ROLES.OFFICER, ROLES.INVESTIGATOR, ROLES.ADMIN] },
+  { label: 'Dashboard', to: '/dashboard', icon: <DashboardOutlinedIcon />, roles: [ROLES.CUSTOMER, ROLES.ADMIN] },
+  { label: 'Submit Claim', to: '/claims/submit', icon: <NoteAddOutlinedIcon />, roles: [ROLES.CUSTOMER] },
+  { label: 'Claim History', to: '/claims', labelByRole: { [ROLES.CUSTOMER]: 'My Claims' }, icon: <HistoryOutlinedIcon />, roles: [ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.ADMIN] },
+  { label: 'Investigation', to: '/investigation', icon: <FindInPageOutlinedIcon />, roles: [ROLES.EMPLOYEE, ROLES.ADMIN] },
+  { label: 'Reports', to: '/reports', icon: <BarChartOutlinedIcon />, roles: [ROLES.ADMIN] },
+  { label: 'Notifications', to: '/notifications', icon: <NotificationsNoneOutlinedIcon />, roles: [ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.ADMIN] },
 ];
 
 export { DRAWER_WIDTH };

@@ -17,18 +17,20 @@ def seed_supabase():
     print("[SEEDER] Connecting to Supabase and purging old data...")
     
     # Delete child tables first, then parent tables
-    try:
-        supabase.table("notifications").delete().neq("notification_id", -1).execute()
-        supabase.table("fraud_predictions").delete().neq("prediction_id", -1).execute()
-        supabase.table("audit_logs").delete().neq("log_id", -1).execute()
-        supabase.table("insurance_claims").delete().neq("claim_id", -1).execute()
-        supabase.table("insurance_policies").delete().neq("policy_id", -1).execute()
-        supabase.table("policyholders").delete().neq("policyholder_id", -1).execute()
-        supabase.table("users").delete().neq("user_id", -1).execute()
-        print("[SEEDER] Database tables purged successfully.")
-    except Exception as e:
-        print(f"[SEEDER] Warning: Failed to purge database tables: {e}")
-        # Proceed anyway as some tables might already be empty or missing RLS permissions
+    for table_name, pk_col in [
+        ("notifications", "notification_id"),
+        ("fraud_predictions", "prediction_id"),
+        ("audit_logs", "log_id"),
+        ("insurance_claims", "claim_id"),
+        ("insurance_policies", "policy_id"),
+        ("policyholders", "policyholder_id"),
+        ("users", "user_id")
+    ]:
+        try:
+            supabase.table(table_name).delete().neq(pk_col, -1).execute()
+            print(f"[SEEDER] Purged table: {table_name}")
+        except Exception as e:
+            print(f"[SEEDER] Warning: Failed to purge table '{table_name}': {e}")
         
     print("[SEEDER] Generating secure password hashes...")
     salt = bcrypt.gensalt()

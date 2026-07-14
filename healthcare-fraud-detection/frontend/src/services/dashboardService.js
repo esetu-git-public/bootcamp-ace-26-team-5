@@ -14,22 +14,32 @@ function mapDashboardFromBackend(d) {
   const fraudPct = total > 0 ? Math.round((fraud / total) * 1000) / 10 : 0.0;
 
   const monthlyClaims = (d.monthly_trend || []).map(t => ({
-    name: t.month,
-    total: t.claims,
+    month: t.month,
+    claims: t.claims,
     fraud: t.fraud
   }));
 
   const riskDistribution = [
-    { name: 'Low', value: risk.Low || 0 },
-    { name: 'Medium', value: risk.Medium || 0 },
-    { name: 'High', value: risk.High || 0 }
+    { level: 'Low', count: risk.Low || 0 },
+    { level: 'Medium', count: risk.Medium || 0 },
+    { level: 'High', count: risk.High || 0 }
   ];
 
   const statusDistribution = [
-    { name: 'Approved', value: genuine },
-    { name: 'Rejected', value: rawKpis.rejected_claims || 0 },
-    { name: 'Pending Review', value: pending }
+    { status: 'Approved', count: genuine },
+    { status: 'Rejected', count: rawKpis.rejected_claims || 0 },
+    { status: 'Pending Review', count: pending }
   ];
+
+  const providerDistribution = (d.provider_distribution || []).map(p => ({
+    provider: p.provider,
+    claims: p.claims
+  }));
+
+  const insuranceDistribution = (d.insurance_distribution || []).map(i => ({
+    type: i.type,
+    claims: i.claims
+  }));
 
   return {
     kpis: {
@@ -45,8 +55,8 @@ function mapDashboardFromBackend(d) {
     riskDistribution,
     statusDistribution,
     recentClaims: [],
-    providerDistribution: [],
-    insuranceDistribution: []
+    providerDistribution,
+    insuranceDistribution
   };
 }
 

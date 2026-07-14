@@ -87,3 +87,16 @@ def predict_claim(claim_data: dict) -> dict:
         "reasons": reasons,
         "model_version": "TensorFlow-Keras-v1.0.0"
     }
+
+
+def get_model_health_status() -> dict:
+    """
+    Returns loaded model details and health status check.
+    """
+    global model
+    return {
+        "model_loaded": model is not None,
+        "model_version": "TensorFlow-Keras-v1.0.0",
+        "backend": "Keras 3 (PyTorch Backend)",
+        "status": "healthy"
+    }

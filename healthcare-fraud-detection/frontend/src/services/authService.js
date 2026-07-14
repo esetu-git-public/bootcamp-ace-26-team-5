@@ -11,16 +11,11 @@ let nextSignupId = 5;
 
 function mapUserFromBackend(u) {
   if (!u) return null;
-  // Map database roles ('customer', 'employee', 'admin') to frontend Display Roles ('Policyholder', 'Claims Officer', 'Admin')
-  let mappedRole = 'Policyholder';
-  if (u.role === 'admin') mappedRole = 'Admin';
-  else if (u.role === 'employee') mappedRole = 'Claims Officer';
-
   return {
     id: u.user_id,
     name: u.full_name,
     email: u.email,
-    role: mappedRole,
+    role: u.role,
   };
 }
 

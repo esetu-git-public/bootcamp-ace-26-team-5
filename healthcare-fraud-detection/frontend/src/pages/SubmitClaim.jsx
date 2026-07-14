@@ -2,12 +2,13 @@ import { useState } from 'react';
 import {
   Grid, Card, Typography, TextField, MenuItem, Button, Stack, Divider, Box, Chip, Alert,
 } from '@mui/material';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import RiskGauge from '../components/common/RiskGauge';
 import { RiskChip } from '../components/common/RiskChip';
 import * as claimsService from '../services/claimsService';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, ROLES } from '../context/AuthContext';
 
 const genders = ['Male', 'Female', 'Other'];
 const insuranceTypes = ['Private', 'Medicare', 'Medicaid', 'Employer Group'];
@@ -34,6 +35,7 @@ function SectionCard({ title, children }) {
 
 export default function SubmitClaim() {
   const { user } = useAuth();
+  const isPolicyholder = user?.role === ROLES.CUSTOMER;
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -137,7 +139,7 @@ export default function SubmitClaim() {
           </form>
         </Grid>
 
-        {result && (
+        {result && !isPolicyholder && (
           <Grid item xs={12} md={5}>
             <Card sx={{ p: 3, position: 'sticky', top: 90 }}>
               <Stack alignItems="center" spacing={1}>
@@ -166,6 +168,26 @@ export default function SubmitClaim() {
                     </Stack>
                   )}
                 </Box>
+                <Divider sx={{ width: '100%', my: 1 }} />
+                <Stack direction="row" spacing={1.5} sx={{ width: '100%' }}>
+                  <Button fullWidth variant="outlined" onClick={() => navigate(`/claims/${result.id}`)}>View Details</Button>
+                  <Button fullWidth variant="contained" onClick={resetForm}>Submit Another</Button>
+                </Stack>
+              </Stack>
+            </Card>
+          </Grid>
+        )}
+
+        {result && isPolicyholder && (
+          <Grid item xs={12} md={5}>
+            <Card sx={{ p: 4, position: 'sticky', top: 90, textAlign: 'center' }}>
+              <Stack alignItems="center" spacing={2}>
+                <CheckCircleOutlineIcon color="success" sx={{ fontSize: 60 }} />
+                <Typography variant="h6">Claim Submitted Successfully</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Your claim has been registered. Claim ID: <strong>{result.id}</strong>.
+                  It is currently under review by our claims team. You will be notified once a status change occurs.
+                </Typography>
                 <Divider sx={{ width: '100%', my: 1 }} />
                 <Stack direction="row" spacing={1.5} sx={{ width: '100%' }}>
                   <Button fullWidth variant="outlined" onClick={() => navigate(`/claims/${result.id}`)}>View Details</Button>

@@ -17,7 +17,9 @@ from repositories.policy_repository import (
     find_policy_by_policyholder_id,
     save_policy
 )
+from repositories.user_repository import find_users_by_role
 from services.prediction_service import run_claim_prediction
+from services.notification_service import send_notification
 from services.audit_service import log_event
 from utils.logger import logger
 
@@ -191,6 +193,20 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
         )
         
     db_save_claim(claim)
+
+    # 4. Generate Notifications
+    if claim.submitted_by:
+        status_disp = claim.claim_status.upper()
+        cust_msg = f"Claim {claim_num} submitted successfully. Current status: {status_disp}."
+        send_notification(recipient_id=claim.submitted_by, message=cust_msg, severity="info" if claim.claim_status == "approved" else "warning")
+
+    if claim.claim_status == "under_review":
+        officers = find_users_by_role("employee")
+        risk_disp = prediction_result["risk_level"].upper()
+        officer_msg = f"New flagged claim {claim_num} requires manual review. Risk Level: {risk_disp}."
+        for officer in officers:
+            send_notification(recipient_id=officer.user_id, message=officer_msg, severity="warning" if risk_disp == "HIGH" else "info")
+
     return claim
 
 
@@ -217,5 +233,15 @@ def update_claim_status_service(claim_id: int, new_status: str, user_id: int) ->
         claim_id=claim.claim_id,
         details=f"Status changed from '{old_status}' to '{new_status}'."
     )
+
+    # Send notification to the user who submitted the claim
+    if claim.submitted_by:
+        status_disp = new_status.upper()
+        cust_msg = f"Your claim {claim.claim_number} status has been updated to {status_disp}."
+        send_notification(
+            recipient_id=claim.submitted_by,
+            message=cust_msg,
+            severity="info" if new_status == "approved" else ("warning" if new_status == "rejected" else "info")
+        )
 
     return True, f"Claim status updated to {new_status} successfully."

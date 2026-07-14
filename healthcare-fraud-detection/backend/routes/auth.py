@@ -56,7 +56,7 @@ def register():
     # Hash the password and save
     hashed = hash_password(data.get("password"))
     user = create_user(
-        full_name=data.get("full_name") or data.get("name"),
+        full_name=data.get("full_name") or data.get("fullName") or data.get("name"),
         email=email,
         password_hash=hashed,
         role=role

@@ -7,7 +7,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 // Set to "false" in .env once the backend endpoints below are live.
 // While true, every service function returns realistic mock data instead
 // of calling the network, so the UI can be built/reviewed independently.
-export const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? 'true') === 'true';
+export const USE_MOCK = false;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -7,11 +7,20 @@ Machine Learning Engine Routes (Controller)
 This module registers blueprint routes for querying machine learning model health.
 """
 
+import sys
+from pathlib import Path
+import os
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
-
-from ml.predict import get_model_health_status
 from utils.api_response import success_response, error_response
+
+# Resolve paths to ml/inference/v1
+BASE_DIR = Path(__file__).resolve().parent.parent
+ML_INFERENCE_DIR = os.path.abspath(BASE_DIR / ".." / "ml" / "inference" / "v1")
+if ML_INFERENCE_DIR not in sys.path:
+    sys.path.append(ML_INFERENCE_DIR)
+
+from predict import get_model_health_status
 
 ml_bp = Blueprint("ml", __name__)
 

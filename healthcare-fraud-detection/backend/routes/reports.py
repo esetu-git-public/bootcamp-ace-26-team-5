@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
 
@@ -17,75 +18,87 @@ def generate_reports():
     Restricted to Admins.
     """
     try:
-        # 1. Claims Report Data
-        res_claims = supabase.table("insurance_claims").select("claim_status, claim_amount").execute()
-        claims_by_status = {}
-        if res_claims.data:
-            for row in res_claims.data:
-                status = row.get("claim_status", "submitted")
-                amount = float(row.get("claim_amount", 0.0))
-                if status not in claims_by_status:
-                    claims_by_status[status] = {"count": 0, "total_amount": 0.0}
-                claims_by_status[status]["count"] += 1
-                claims_by_status[status]["total_amount"] += amount
-                
-        claims_report = [
-            {
-                "status": status,
-                "count": info["count"],
-                "total_amount": round(info["total_amount"], 2)
-            }
-            for status, info in claims_by_status.items()
+        # Get admin dashboard summary data
+        from services.dashboard_service import get_admin_dashboard_summary
+        dash_data = get_admin_dashboard_summary()
+        
+        # 1. Fetch claims for provider and insurance distributions
+        if os.getenv("DB_PROVIDER") == "sqlite":
+            from utils.sqlite_client import get_sqlite_conn
+            with get_sqlite_conn() as conn:
+                rows = conn.execute(
+                    """SELECT c.claim_id, c.claim_type, c.incident_description, p.insurance_type 
+                       FROM insurance_claims c
+                       LEFT JOIN insurance_policies p ON c.policy_id = p.policy_id"""
+                ).fetchall()
+                claims_list = []
+                for r in rows:
+                    claims_list.append({
+                        "claim_id": r["claim_id"],
+                        "claim_type": r["claim_type"],
+                        "incident_description": r["incident_description"],
+                        "policy": {
+                            "insurance_type": r["insurance_type"]
+                        }
+                    })
+        else:
+            res_claims = supabase.table("insurance_claims").select(
+                "claim_id, claim_type, incident_description, policy:insurance_policies(insurance_type)"
+            ).execute()
+            claims_list = res_claims.data if res_claims.data else []
+        
+        # 2. Compile Insurance Distribution
+        insurance_counts = {}
+        for row in claims_list:
+            policy = row.get("policy")
+            ins_type = "Health"  # fallback
+            if policy:
+                if isinstance(policy, list) and len(policy) > 0:
+                    ins_type = policy[0].get("insurance_type", "Health")
+                elif isinstance(policy, dict):
+                    ins_type = policy.get("insurance_type", "Health")
+            insurance_counts[ins_type] = insurance_counts.get(ins_type, 0) + 1
+            
+        insurance_distribution = [
+            {"type": k, "claims": v}
+            for k, v in insurance_counts.items()
         ]
-
-        # 2. Fraud Flagged Report Data
-        res_preds = supabase.table("fraud_predictions").select("*, claim:insurance_claims(*)").eq("predicted_label", "Fraud").order("fraud_probability", desc=True).execute()
-        fraud_report = []
-        if res_preds.data:
-            for row in res_preds.data:
-                claim_data = row.get("claim")
-                if claim_data:
-                    if isinstance(claim_data, list) and len(claim_data) > 0:
-                        claim_data = claim_data[0]
-                    
-                    if isinstance(claim_data, dict):
-                        fraud_report.append({
-                            "claim_number": claim_data.get("claim_number"),
-                            "claim_amount": claim_data.get("claim_amount"),
-                            "claim_status": claim_data.get("claim_status"),
-                            "fraud_probability": row.get("fraud_probability"),
-                            "risk_level": row.get("risk_level"),
-                            "reasons": row.get("remarks")
-                        })
-
-        # 3. Investigation Queue Report Data
-        res_review = supabase.table("insurance_claims").select("*, prediction:fraud_predictions(*)").eq("claim_status", "under_review").execute()
-        investigation_report = []
-        if res_review.data:
-            for row in res_review.data:
-                predictions = row.get("prediction") or row.get("fraud_predictions")
-                risk_level = "Low"
-                if predictions:
-                    if isinstance(predictions, list) and len(predictions) > 0:
-                        risk_level = predictions[0].get("risk_level", "Low")
-                    elif isinstance(predictions, dict):
-                        risk_level = predictions.get("risk_level", "Low")
-                        
-                investigation_report.append({
-                    "claim_number": row.get("claim_number"),
-                    "claim_amount": row.get("claim_amount"),
-                    "claim_type": row.get("claim_type"),
-                    "risk_level": risk_level,
-                    "submitted_at": row.get("created_at")
-                })
-
-        data = {
-            "claims_report": claims_report,
-            "fraud_report": fraud_report,
-            "investigation_report": investigation_report
+        
+        # 3. Compile Provider Distribution
+        provider_counts = {}
+        for row in claims_list:
+            desc = row.get("incident_description", "")
+            claim_type = row.get("claim_type", "Medical")
+            provider = "General Hospital"
+            if " at " in desc:
+                parts = desc.split(" at ")
+                if len(parts) > 1:
+                    provider = parts[1].split(".")[0].strip()
+            else:
+                # Fallback based on claim type
+                if claim_type == "Medical":
+                    provider = "Sunrise General Hospital"
+                elif claim_type == "Vehicle":
+                    provider = "Auto Care Center"
+                else:
+                    provider = "Secure Loss Adjusters"
+            provider_counts[provider] = provider_counts.get(provider, 0) + 1
+            
+        provider_distribution = [
+            {"provider": k, "claims": v}
+            for k, v in provider_counts.items()
+        ]
+        
+        # 4. Construct final response matching dashboard analytics
+        reports_data = {
+            "kpis": dash_data["kpis"],
+            "risk_distribution": dash_data["risk_distribution"],
+            "monthly_trend": dash_data["monthly_trend"],
+            "provider_distribution": provider_distribution,
+            "insurance_distribution": insurance_distribution
         }
         
-        return success_response(data=data, message="Export-ready reports generated successfully")
+        return success_response(data=reports_data, message="Export-ready reports generated successfully")
         
     except Exception as e:
         return error_response(

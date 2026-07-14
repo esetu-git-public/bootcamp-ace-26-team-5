@@ -30,7 +30,8 @@ export default function ClaimDetails() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const canDecide = user?.role === ROLES.INVESTIGATOR || user?.role === ROLES.ADMIN;
+  const isPolicyholder = user?.role === ROLES.CUSTOMER;
+  const canDecide = user?.role === ROLES.EMPLOYEE || user?.role === ROLES.ADMIN;
 
   const load = () => {
     setLoading(true);
@@ -69,8 +70,8 @@ export default function ClaimDetails() {
     );
   }
 
-  // Policyholders can only view claims they submitted themselves.
-  if (user?.role === ROLES.POLICYHOLDER && claim.submittedBy !== user.id) {
+  // Customers can only view claims they submitted themselves.
+  if (user?.role === ROLES.CUSTOMER && claim.submittedBy !== user.id) {
     return (
       <DashboardLayout title="Claim Details">
         <EmptyState title="Not available" description="You can only view claims that you submitted." />
@@ -87,13 +88,13 @@ export default function ClaimDetails() {
       {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
 
       <Grid container spacing={2.5}>
-        <Grid item xs={12} md={7}>
+        <Grid item xs={12} md={isPolicyholder ? 12 : 7}>
           <Stack spacing={2.5}>
             <Card sx={{ p: 3 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography variant="subtitle1">Claim Summary</Typography>
                 <Stack direction="row" spacing={1}>
-                  <RiskChip level={claim.prediction.riskLevel} />
+                  {!isPolicyholder && <RiskChip level={claim.prediction.riskLevel} />}
                   <StatusChip status={claim.status} />
                 </Stack>
               </Stack>
@@ -130,72 +131,76 @@ export default function ClaimDetails() {
               </Grid>
             </Card>
 
-            <Card sx={{ p: 3 }}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Timeline &amp; Notes</Typography>
-              {claim.notes.length === 0 ? (
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>No investigation notes yet.</Typography>
-              ) : (
-                <Stack spacing={1.5} sx={{ mb: 2 }}>
-                  {claim.notes.map((n, i) => (
-                    <Box key={i} sx={{ p: 1.5, bgcolor: '#F8FAFC', borderRadius: 1.5 }}>
-                      <Typography variant="body2">{n.text}</Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{new Date(n.at).toLocaleString()}</Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              )}
-              {canDecide && (
-                <Stack direction="row" spacing={1.5}>
-                  <TextField
-                    fullWidth size="small" placeholder="Add an investigation note…"
-                    value={note} onChange={(e) => setNote(e.target.value)}
-                  />
-                  <Button variant="outlined" disabled={busy || !note.trim()} onClick={submitNote}>Add Note</Button>
-                </Stack>
-              )}
-            </Card>
-          </Stack>
-        </Grid>
-
-        <Grid item xs={12} md={5}>
-          <Card sx={{ p: 3, position: 'sticky', top: 90 }}>
-            <Stack alignItems="center" spacing={1}>
-              <Typography variant="subtitle1">AI Prediction</Typography>
-              <RiskGauge probability={claim.prediction.probability} riskLevel={claim.prediction.riskLevel} />
-              <Chip
-                label={claim.prediction.label}
-                color={claim.prediction.label === 'Fraud' ? 'error' : 'success'}
-                variant="outlined"
-              />
-              <Divider sx={{ width: '100%', my: 1.5 }} />
-              <Box sx={{ width: '100%' }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Explanation</Typography>
-                {claim.prediction.explanations.length === 0 ? (
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>No risk factors detected.</Typography>
+            {!isPolicyholder && (
+              <Card sx={{ p: 3 }}>
+                <Typography variant="subtitle1" sx={{ mb: 2 }}>Timeline &amp; Notes</Typography>
+                {claim.notes.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>No investigation notes yet.</Typography>
                 ) : (
-                  <Stack spacing={0.75}>
-                    {claim.prediction.explanations.map((exp, i) => (
-                      <Typography key={i} variant="body2" sx={{ color: 'text.secondary' }}>• {exp}</Typography>
+                  <Stack spacing={1.5} sx={{ mb: 2 }}>
+                    {claim.notes.map((n, i) => (
+                      <Box key={i} sx={{ p: 1.5, bgcolor: '#F8FAFC', borderRadius: 1.5 }}>
+                        <Typography variant="body2">{n.text}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{new Date(n.at).toLocaleString()}</Typography>
+                      </Box>
                     ))}
                   </Stack>
                 )}
-              </Box>
-
-              {canDecide && (
-                <>
-                  <Divider sx={{ width: '100%', my: 1.5 }} />
-                  <Stack direction="row" spacing={1.5} sx={{ width: '100%' }}>
-                    <Button fullWidth variant="contained" color="success" disabled={busy} onClick={() => decide('Approved')}>Approve</Button>
-                    <Button fullWidth variant="contained" color="error" disabled={busy} onClick={() => decide('Rejected')}>Reject</Button>
+                {canDecide && (
+                  <Stack direction="row" spacing={1.5}>
+                    <TextField
+                      fullWidth size="small" placeholder="Add an investigation note…"
+                      value={note} onChange={(e) => setNote(e.target.value)}
+                    />
+                    <Button variant="outlined" disabled={busy || !note.trim()} onClick={submitNote}>Add Note</Button>
                   </Stack>
-                  <Button fullWidth variant="outlined" sx={{ mt: 1 }} disabled={busy} onClick={() => decide('Under Investigation')}>
-                    Request Investigation
-                  </Button>
-                </>
-              )}
-            </Stack>
-          </Card>
+                )}
+              </Card>
+            )}
+          </Stack>
         </Grid>
+
+        {!isPolicyholder && (
+          <Grid item xs={12} md={5}>
+            <Card sx={{ p: 3, position: 'sticky', top: 90 }}>
+              <Stack alignItems="center" spacing={1}>
+                <Typography variant="subtitle1">AI Prediction</Typography>
+                <RiskGauge probability={claim.prediction.probability} riskLevel={claim.prediction.riskLevel} />
+                <Chip
+                  label={claim.prediction.label}
+                  color={claim.prediction.label === 'Fraud' ? 'error' : 'success'}
+                  variant="outlined"
+                />
+                <Divider sx={{ width: '100%', my: 1.5 }} />
+                <Box sx={{ width: '100%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Explanation</Typography>
+                  {claim.prediction.explanations.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>No risk factors detected.</Typography>
+                  ) : (
+                    <Stack spacing={0.75}>
+                      {claim.prediction.explanations.map((exp, i) => (
+                        <Typography key={i} variant="body2" sx={{ color: 'text.secondary' }}>• {exp}</Typography>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+  
+                {canDecide && (
+                  <>
+                    <Divider sx={{ width: '100%', my: 1.5 }} />
+                    <Stack direction="row" spacing={1.5} sx={{ width: '100%' }}>
+                      <Button fullWidth variant="contained" color="success" disabled={busy} onClick={() => decide('Approved')}>Approve</Button>
+                      <Button fullWidth variant="contained" color="error" disabled={busy} onClick={() => decide('Rejected')}>Reject</Button>
+                    </Stack>
+                    <Button fullWidth variant="outlined" sx={{ mt: 1 }} disabled={busy} onClick={() => decide('Under Investigation')}>
+                      Request Investigation
+                    </Button>
+                  </>
+                )}
+              </Stack>
+            </Card>
+          </Grid>
+        )}
       </Grid>
     </DashboardLayout>
   );

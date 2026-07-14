@@ -13,7 +13,7 @@ import { useAuth, ROLES } from '../context/AuthContext';
 
 export default function ClaimHistory() {
   const { user } = useAuth();
-  const isPolicyholder = user?.role === ROLES.POLICYHOLDER;
+  const isPolicyholder = user?.role === ROLES.CUSTOMER;
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -71,12 +71,14 @@ export default function ClaimHistory() {
             size="small" fullWidth value={search} onChange={(e) => setSearch(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchOutlinedIcon fontSize="small" /></InputAdornment> }}
           />
-          <TextField select size="small" label="Risk" value={risk} onChange={(e) => setRisk(e.target.value)} sx={{ minWidth: 140 }}>
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="High">High</MenuItem>
-            <MenuItem value="Medium">Medium</MenuItem>
-            <MenuItem value="Low">Low</MenuItem>
-          </TextField>
+          {!isPolicyholder && (
+            <TextField select size="small" label="Risk" value={risk} onChange={(e) => setRisk(e.target.value)} sx={{ minWidth: 140 }}>
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="High">High</MenuItem>
+              <MenuItem value="Medium">Medium</MenuItem>
+              <MenuItem value="Low">Low</MenuItem>
+            </TextField>
+          )}
           <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 170 }}>
             <MenuItem value="">All</MenuItem>
             <MenuItem value="Approved">Approved</MenuItem>
@@ -105,10 +107,12 @@ export default function ClaimHistory() {
                   <TableCell>
                     <TableSortLabel active={sortBy === 'amount'} direction={sortDir} onClick={() => toggleSort('amount')}>Amount</TableSortLabel>
                   </TableCell>
-                  <TableCell>Prediction</TableCell>
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'risk'} direction={sortDir} onClick={() => toggleSort('risk')}>Risk</TableSortLabel>
-                  </TableCell>
+                  {!isPolicyholder && <TableCell>Prediction</TableCell>}
+                  {!isPolicyholder && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'risk'} direction={sortDir} onClick={() => toggleSort('risk')}>Risk</TableSortLabel>
+                    </TableCell>
+                  )}
                   <TableCell>Status</TableCell>
                   <TableCell>
                     <TableSortLabel active={sortBy === 'claimDate'} direction={sortDir} onClick={() => toggleSort('claimDate')}>Created Date</TableSortLabel>
@@ -121,8 +125,8 @@ export default function ClaimHistory() {
                     <TableCell sx={{ fontWeight: 600 }}>{c.id}</TableCell>
                     <TableCell>{c.patient.name}</TableCell>
                     <TableCell>${c.financial.claimAmount.toLocaleString()}</TableCell>
-                    <TableCell>{c.prediction.label}</TableCell>
-                    <TableCell><RiskChip level={c.prediction.riskLevel} /></TableCell>
+                    {!isPolicyholder && <TableCell>{c.prediction.label}</TableCell>}
+                    {!isPolicyholder && <TableCell><RiskChip level={c.prediction.riskLevel} /></TableCell>}
                     <TableCell><StatusChip status={c.status} /></TableCell>
                     <TableCell>{c.dates.claimDate}</TableCell>
                   </TableRow>

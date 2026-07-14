@@ -11,7 +11,7 @@ def validate_registration_data(data: dict) -> tuple[bool, str]:
     if not data:
         return False, "Request payload is empty"
         
-    full_name = data.get("full_name") or data.get("name")
+    full_name = data.get("full_name") or data.get("fullName") or data.get("name")
     email = data.get("email")
     password = data.get("password")
     role = data.get("role", "customer")

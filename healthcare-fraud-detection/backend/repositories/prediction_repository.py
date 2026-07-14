@@ -1,11 +1,23 @@
+import os
 from models import FraudPrediction
 from utils.supabase_client import supabase
+from utils.sqlite_client import get_sqlite_conn
 from datetime import datetime
 
 def find_prediction_by_claim_id(claim_id: int) -> FraudPrediction:
     """
     Find prediction record for a specific claim.
     """
+    if os.getenv("DB_PROVIDER") == "sqlite":
+        try:
+            with get_sqlite_conn() as conn:
+                row = conn.execute("SELECT * FROM fraud_predictions WHERE claim_id = ?", (claim_id,)).fetchone()
+                if row:
+                    return FraudPrediction.from_dict(dict(row))
+        except Exception as e:
+            print(f"Error finding SQLite prediction by claim ID: {e}")
+        return None
+
     try:
         res = supabase.table("fraud_predictions").select("*").eq("claim_id", claim_id).execute()
         if res.data:
@@ -30,6 +42,38 @@ def save_prediction(prediction: FraudPrediction) -> FraudPrediction:
         "prediction_date": datetime.utcnow().isoformat()
     }
     
+    if os.getenv("DB_PROVIDER") == "sqlite":
+        try:
+            with get_sqlite_conn() as conn:
+                cursor = conn.cursor()
+                if existing:
+                    cursor.execute(
+                        """UPDATE fraud_predictions SET predicted_label = ?, fraud_probability = ?, 
+                           risk_level = ?, model_version = ?, remarks = ?, prediction_date = ? 
+                           WHERE prediction_id = ?""",
+                        (payload["predicted_label"], payload["fraud_probability"], payload["risk_level"],
+                         payload["model_version"], payload["remarks"], payload["prediction_date"],
+                         existing.prediction_id)
+                    )
+                    prediction.prediction_id = existing.prediction_id
+                else:
+                    cursor.execute(
+                        """INSERT INTO fraud_predictions (claim_id, predicted_label, fraud_probability, 
+                           risk_level, model_version, remarks, prediction_date) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (payload["claim_id"], payload["predicted_label"], payload["fraud_probability"],
+                         payload["risk_level"], payload["model_version"], payload["remarks"],
+                         payload["prediction_date"])
+                    )
+                    prediction.prediction_id = cursor.lastrowid
+                conn.commit()
+                row = conn.execute("SELECT * FROM fraud_predictions WHERE prediction_id = ?", (prediction.prediction_id,)).fetchone()
+                if row:
+                    return FraudPrediction.from_dict(dict(row))
+        except Exception as e:
+            print(f"Error saving SQLite prediction: {e}")
+        return prediction
+
     try:
         if existing:
             # Update existing prediction values

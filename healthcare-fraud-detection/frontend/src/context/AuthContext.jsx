@@ -4,10 +4,9 @@ import * as authService from '../services/authService';
 const AuthContext = createContext(null);
 
 export const ROLES = {
-  POLICYHOLDER: 'Policyholder',
-  OFFICER: 'Claims Officer',
-  INVESTIGATOR: 'Fraud Investigator',
-  ADMIN: 'Admin',
+  CUSTOMER: 'customer',
+  EMPLOYEE: 'employee',
+  ADMIN: 'admin',
 };
 
 export function AuthProvider({ children }) {

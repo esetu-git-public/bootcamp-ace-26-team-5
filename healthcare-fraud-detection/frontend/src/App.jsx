@@ -29,14 +29,14 @@ export default function App() {
 
             <Route
               path="/claims/submit"
-              element={<ProtectedRoute roles={[ROLES.POLICYHOLDER, ROLES.OFFICER]}><SubmitClaim /></ProtectedRoute>}
+              element={<ProtectedRoute roles={[ROLES.CUSTOMER]}><SubmitClaim /></ProtectedRoute>}
             />
             <Route path="/claims" element={<ProtectedRoute><ClaimHistory /></ProtectedRoute>} />
             <Route path="/claims/:id" element={<ProtectedRoute><ClaimDetails /></ProtectedRoute>} />
 
             <Route
               path="/investigation"
-              element={<ProtectedRoute roles={[ROLES.OFFICER, ROLES.ADMIN, ROLES.INVESTIGATOR]}><Investigation /></ProtectedRoute>}
+              element={<ProtectedRoute roles={[ROLES.EMPLOYEE, ROLES.ADMIN]}><Investigation /></ProtectedRoute>}
             />
             <Route
               path="/reports"

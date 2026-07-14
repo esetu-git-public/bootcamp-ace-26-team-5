@@ -50,17 +50,14 @@ export default function UserDashboard() {
       </Stack>
 
       <Grid container spacing={2.5}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={4} md={4}>
           <KpiCard label="My Claims" value={kpis.total} icon={<DescriptionOutlinedIcon />} accent={theme.tokens.blue} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={4} md={4}>
           <KpiCard label="Approved" value={kpis.genuine} icon={<CheckCircleOutlineIcon />} accent={theme.tokens.low} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={4} md={4}>
           <KpiCard label="Pending Review" value={kpis.pending} icon={<HourglassEmptyOutlinedIcon />} accent={theme.tokens.medium} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <KpiCard label="Flagged High Risk" value={kpis.highRisk} icon={<PriorityHighOutlinedIcon />} accent={theme.tokens.high} />
         </Grid>
 
         <Grid item xs={12}>
@@ -72,7 +69,7 @@ export default function UserDashboard() {
             {recentClaims.length === 0 ? (
               <EmptyState
                 title="No claims yet"
-                description="You haven't submitted any claims. Submit one to see its status and AI risk assessment here."
+                description="You haven't submitted any claims. Submit one to see its status here."
                 icon={<DescriptionOutlinedIcon sx={{ fontSize: 40 }} />}
               />
             ) : (
@@ -83,7 +80,6 @@ export default function UserDashboard() {
                       <TableCell>Claim ID</TableCell>
                       <TableCell>Diagnosis</TableCell>
                       <TableCell>Amount</TableCell>
-                      <TableCell>Risk</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell>Date</TableCell>
                     </TableRow>
@@ -94,7 +90,6 @@ export default function UserDashboard() {
                         <TableCell sx={{ fontWeight: 600 }}>{c.id}</TableCell>
                         <TableCell>{c.medical.diagnosis}</TableCell>
                         <TableCell>${c.financial.claimAmount.toLocaleString()}</TableCell>
-                        <TableCell><RiskChip level={c.prediction.riskLevel} /></TableCell>
                         <TableCell><StatusChip status={c.status} /></TableCell>
                         <TableCell>{c.dates.claimDate}</TableCell>
                       </TableRow>
