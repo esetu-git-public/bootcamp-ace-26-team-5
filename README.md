@@ -251,6 +251,19 @@ This project supports running in **SQLite mode** (local development, default) or
 
 For detailed configuration options, see [DEPLOYMENT.md](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/healthcare-fraud-detection/DEPLOYMENT.md).
 
+### ⚡ Single-Command Setup & Startup (Recommended)
+You can automatically configure environment variables, initialize/seed the local SQLite database, install all backend and frontend dependencies, and launch both servers concurrently in a single command from the project root folder:
+
+- **Windows:**
+  ```powershell
+  .\\run.bat
+  ```
+- **macOS / Linux:**
+  ```bash
+  chmod +x run.sh ran.sh
+  ./run.sh    # or: ./ran.sh
+  ```
+
 ### 1. Prerequisites
 - **Python:** 3.11+
 - **Node.js:** 18+
