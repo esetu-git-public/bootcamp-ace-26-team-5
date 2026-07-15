@@ -26,7 +26,7 @@ if not exist ".venv" (
 )
 call .venv/Scripts/activate
 echo [Backend] Installing dependencies...
-pip install -r requirements.txt
+pip install -r ..\requirements.txt
 cd ../..
 
 :: 4. Frontend Setup

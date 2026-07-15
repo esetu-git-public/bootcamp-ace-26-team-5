@@ -28,7 +28,7 @@ if [ ! -d ".venv" ]; then
 fi
 source .venv/bin/activate
 echo "[Backend] Installing dependencies..."
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 cd ../..
 
 # 4. Frontend Setup
