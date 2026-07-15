@@ -255,8 +255,14 @@ For detailed configuration options, see [DEPLOYMENT.md](file:///d:/ML%20bootcamp
 You can automatically configure environment variables, initialize/seed the local SQLite database, install all backend and frontend dependencies, and launch both servers concurrently in a single command from the project root folder:
 
 - **Windows:**
+  Using PowerShell (Recommended):
   ```powershell
-  .\\run.bat
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  .\\run.ps1
+  ```
+  Or using Command Prompt:
+  ```cmd
+  run.bat
   ```
 - **macOS / Linux:**
   ```bash
