@@ -1,8 +1,7 @@
 import axios from 'axios';
 
-// Base URL points at the Flask/FastAPI backend. Override with a .env file:
-// VITE_API_BASE_URL=http://localhost:8000/api
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+// VITE_API_BASE_URL=http://localhost:5000/api
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 // Set to "false" in .env once the backend endpoints below are live.
 // While true, every service function returns realistic mock data instead
