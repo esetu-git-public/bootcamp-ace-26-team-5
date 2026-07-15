@@ -117,3 +117,19 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_claim ON audit_logs(claim_id);
+
+-- 8. Model feedback loop
+CREATE TABLE IF NOT EXISTS model_feedback (
+    feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    claim_id INTEGER NOT NULL UNIQUE,
+    user_id INTEGER,
+    is_incorrect INTEGER DEFAULT 0,
+    actual_label TEXT,
+    feedback_text TEXT,
+    model_version TEXT DEFAULT 'v1.0',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (claim_id) REFERENCES insurance_claims(claim_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_model_feedback_claim ON model_feedback(claim_id);

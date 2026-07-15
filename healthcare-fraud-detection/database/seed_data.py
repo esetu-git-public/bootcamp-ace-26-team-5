@@ -8,6 +8,7 @@ connection.execute("PRAGMA foreign_keys = ON")
 cursor = connection.cursor()
 
 # Delete child tables first, then parent tables
+cursor.execute("DELETE FROM model_feedback")
 cursor.execute("DELETE FROM fraud_predictions")
 cursor.execute("DELETE FROM insurance_claims")
 cursor.execute("DELETE FROM insurance_policies")
@@ -18,6 +19,7 @@ cursor.execute("DELETE FROM users")
 cursor.execute("""
     DELETE FROM sqlite_sequence
     WHERE name IN (
+        'model_feedback',
         'fraud_predictions',
         'insurance_claims',
         'insurance_policies',

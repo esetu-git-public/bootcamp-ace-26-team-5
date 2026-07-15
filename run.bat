@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 echo ==================================================
 echo Starting Healthcare Fraud Detection System Setup...
 echo ==================================================

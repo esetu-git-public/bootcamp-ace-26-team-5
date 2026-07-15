@@ -277,3 +277,45 @@ class AuditLog:
             "details": self.details,
             "timestamp": self.timestamp.isoformat() if isinstance(self.timestamp, datetime) else self.timestamp
         }
+
+
+class ModelFeedback:
+    def __init__(self, feedback_id=None, claim_id=None, user_id=None, is_incorrect=0, actual_label="Not Fraud", feedback_text="", model_version="v1.0", created_at=None):
+        self.feedback_id = feedback_id
+        self.claim_id = claim_id
+        self.user_id = user_id
+        self.is_incorrect = is_incorrect
+        self.actual_label = actual_label
+        self.feedback_text = feedback_text
+        self.model_version = model_version
+        self.created_at = created_at or datetime.utcnow()
+
+    @staticmethod
+    def from_dict(data):
+        if not data:
+            return None
+        # Handle SQLite 0/1 boolean vs Postgres True/False
+        is_inc = data.get("is_incorrect")
+        is_inc_val = 1 if is_inc in (1, True, "true", "1") else 0
+        return ModelFeedback(
+            feedback_id=data.get("feedback_id"),
+            claim_id=data.get("claim_id"),
+            user_id=data.get("user_id"),
+            is_incorrect=is_inc_val,
+            actual_label=data.get("actual_label", "Not Fraud"),
+            feedback_text=data.get("feedback_text", ""),
+            model_version=data.get("model_version", "v1.0"),
+            created_at=data.get("created_at")
+        )
+
+    def to_dict(self):
+        return {
+            "feedback_id": self.feedback_id,
+            "claim_id": self.claim_id,
+            "user_id": self.user_id,
+            "is_incorrect": bool(self.is_incorrect),
+            "actual_label": self.actual_label,
+            "feedback_text": self.feedback_text,
+            "model_version": self.model_version,
+            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at
+        }

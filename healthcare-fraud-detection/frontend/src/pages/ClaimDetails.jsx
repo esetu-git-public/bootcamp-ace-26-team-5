@@ -9,6 +9,7 @@ import RiskGauge from '../components/common/RiskGauge';
 import { RiskChip, StatusChip } from '../components/common/RiskChip';
 import EmptyState from '../components/common/EmptyState';
 import * as claimsService from '../services/claimsService';
+import * as feedbackService from '../services/feedbackService';
 import { useAuth, ROLES } from '../context/AuthContext';
 
 function Field({ label, value }) {
@@ -162,46 +163,186 @@ export default function ClaimDetails() {
 
         {!isPolicyholder && (
           <Grid item xs={12} md={5}>
-            <Card sx={{ p: 3, position: 'sticky', top: 90 }}>
-              <Stack alignItems="center" spacing={1}>
-                <Typography variant="subtitle1">AI Prediction</Typography>
-                <RiskGauge probability={claim.prediction.probability} riskLevel={claim.prediction.riskLevel} />
-                <Chip
-                  label={claim.prediction.label}
-                  color={claim.prediction.label === 'Fraud' ? 'error' : 'success'}
-                  variant="outlined"
-                />
-                <Divider sx={{ width: '100%', my: 1.5 }} />
-                <Box sx={{ width: '100%' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Explanation</Typography>
-                  {claim.prediction.explanations.length === 0 ? (
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>No risk factors detected.</Typography>
-                  ) : (
-                    <Stack spacing={0.75}>
-                      {claim.prediction.explanations.map((exp, i) => (
-                        <Typography key={i} variant="body2" sx={{ color: 'text.secondary' }}>• {exp}</Typography>
-                      ))}
-                    </Stack>
+            <Stack spacing={2.5} sx={{ position: 'sticky', top: 90 }}>
+              <Card sx={{ p: 3 }}>
+                <Stack alignItems="center" spacing={1}>
+                  <Typography variant="subtitle1">AI Prediction</Typography>
+                  <RiskGauge probability={claim.prediction.probability} riskLevel={claim.prediction.riskLevel} />
+                  <Chip
+                    label={claim.prediction.label}
+                    color={claim.prediction.label === 'Fraud' ? 'error' : 'success'}
+                    variant="outlined"
+                  />
+                  <Divider sx={{ width: '100%', my: 1.5 }} />
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Explanation</Typography>
+                    {claim.prediction.explanations.length === 0 ? (
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>No risk factors detected.</Typography>
+                    ) : (
+                      <Stack spacing={0.75}>
+                        {claim.prediction.explanations.map((exp, i) => (
+                          <Typography key={i} variant="body2" sx={{ color: 'text.secondary' }}>• {exp}</Typography>
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
+    
+                  {canDecide && (
+                    <>
+                      <Divider sx={{ width: '100%', my: 1.5 }} />
+                      <Stack direction="row" spacing={1.5} sx={{ width: '100%' }}>
+                        <Button fullWidth variant="contained" color="success" disabled={busy} onClick={() => decide('Approved')}>Approve</Button>
+                        <Button fullWidth variant="contained" color="error" disabled={busy} onClick={() => decide('Rejected')}>Reject</Button>
+                      </Stack>
+                      <Button fullWidth variant="outlined" sx={{ mt: 1 }} disabled={busy} onClick={() => decide('Under Investigation')}>
+                        Request Investigation
+                      </Button>
+                    </>
                   )}
-                </Box>
-  
-                {canDecide && (
-                  <>
-                    <Divider sx={{ width: '100%', my: 1.5 }} />
-                    <Stack direction="row" spacing={1.5} sx={{ width: '100%' }}>
-                      <Button fullWidth variant="contained" color="success" disabled={busy} onClick={() => decide('Approved')}>Approve</Button>
-                      <Button fullWidth variant="contained" color="error" disabled={busy} onClick={() => decide('Rejected')}>Reject</Button>
-                    </Stack>
-                    <Button fullWidth variant="outlined" sx={{ mt: 1 }} disabled={busy} onClick={() => decide('Under Investigation')}>
-                      Request Investigation
-                    </Button>
-                  </>
-                )}
-              </Stack>
-            </Card>
+                </Stack>
+              </Card>
+
+              <ModelFeedbackCard claimId={claim.id} modelVersion={claim.prediction.modelVersion} />
+            </Stack>
           </Grid>
         )}
       </Grid>
     </DashboardLayout>
+  );
+}
+
+
+function ModelFeedbackCard({ claimId, modelVersion }) {
+  const [feedback, setFeedback] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isIncorrect, setIsIncorrect] = useState(false);
+  const [actualLabel, setActualLabel] = useState('Not Fraud');
+  const [comments, setComments] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const loadFeedback = async () => {
+    try {
+      const res = await feedbackService.getClaimFeedback(claimId);
+      if (res && res.data) {
+        setFeedback(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFeedback();
+  }, [claimId]);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await feedbackService.submitFeedback({
+        claim_id: claimId,
+        is_incorrect: isIncorrect,
+        actual_label: isIncorrect ? actualLabel : 'Not Fraud',
+        feedback_text: comments,
+        model_version: modelVersion || 'v1.0'
+      });
+      setMessage('Feedback submitted successfully!');
+      setFeedback(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to submit feedback');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <Card sx={{ p: 3 }}>
+      <Typography variant="subtitle1" sx={{ mb: 1.5 }}>AI Model Feedback</Typography>
+      {feedback ? (
+        <Stack spacing={1.5}>
+          <Alert severity={feedback.is_incorrect ? "warning" : "success"} icon={false}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {feedback.is_incorrect ? "Disagreed with AI Prediction" : "Agreed with AI Prediction"}
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+              Actual Label: <strong>{feedback.actual_label}</strong>
+            </Typography>
+          </Alert>
+          {feedback.feedback_text && (
+            <Box sx={{ p: 1.5, bgcolor: '#F8FAFC', borderRadius: 1.5 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>Comments:</Typography>
+              <Typography variant="body2">{feedback.feedback_text}</Typography>
+            </Box>
+          )}
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+            Submitted at {new Date(feedback.created_at).toLocaleString()}
+          </Typography>
+        </Stack>
+      ) : (
+        <Stack spacing={2}>
+          {error && <Alert severity="error" sx={{ py: 0.5 }}>{error}</Alert>}
+          {message && <Alert severity="success" sx={{ py: 0.5 }}>{message}</Alert>}
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>Disagreed with prediction?</Typography>
+            <Button 
+              size="small"
+              variant={isIncorrect ? "contained" : "outlined"}
+              color={isIncorrect ? "warning" : "inherit"}
+              onClick={() => setIsIncorrect(!isIncorrect)}
+            >
+              {isIncorrect ? "Yes, I Disagree" : "No, Prediction OK"}
+            </Button>
+          </Box>
+
+          {isIncorrect && (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>Select correct label:</Typography>
+              <Stack direction="row" spacing={1}>
+                {['Not Fraud', 'Fraud'].map((lbl) => (
+                  <Button
+                    key={lbl}
+                    size="small"
+                    variant={actualLabel === lbl ? "contained" : "outlined"}
+                    color={lbl === 'Fraud' ? "error" : "success"}
+                    onClick={() => setActualLabel(lbl)}
+                    sx={{ flex: 1 }}
+                  >
+                    {lbl}
+                  </Button>
+                ))}
+              </Stack>
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={2}
+            size="small"
+            label="Comments / Reason"
+            placeholder="Why is the model prediction incorrect or correct? Add your review findings..."
+            value={comments}
+            onChange={(e) => setComments(e.target.value)}
+          />
+
+          <Button 
+            variant="contained" 
+            fullWidth 
+            disabled={submitting} 
+            onClick={handleSubmit}
+          >
+            Submit Feedback
+          </Button>
+        </Stack>
+      )}
+    </Card>
   );
 }

@@ -12,6 +12,7 @@ import ClaimHistory from './pages/ClaimHistory';
 import ClaimDetails from './pages/ClaimDetails';
 import Investigation from './pages/Investigation';
 import Reports from './pages/Reports';
+import ModelPerformance from './pages/ModelPerformance';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
 
@@ -41,6 +42,10 @@ export default function App() {
             <Route
               path="/reports"
               element={<ProtectedRoute roles={[ROLES.ADMIN]}><Reports /></ProtectedRoute>}
+            />
+            <Route
+              path="/model-performance"
+              element={<ProtectedRoute roles={[ROLES.EMPLOYEE, ROLES.ADMIN]}><ModelPerformance /></ProtectedRoute>}
             />
 
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />

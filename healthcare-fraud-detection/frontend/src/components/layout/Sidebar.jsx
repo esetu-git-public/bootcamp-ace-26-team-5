@@ -7,6 +7,7 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import PsychologyOutlinedIcon from '@mui/icons-material/PsychologyOutlined';
 import { useAuth, ROLES } from '../../context/AuthContext';
 
 const DRAWER_WIDTH = 248;
@@ -16,6 +17,7 @@ const navItems = [
   { label: 'Submit Claim', to: '/claims/submit', icon: <NoteAddOutlinedIcon />, roles: [ROLES.CUSTOMER] },
   { label: 'Claim History', to: '/claims', labelByRole: { [ROLES.CUSTOMER]: 'My Claims' }, icon: <HistoryOutlinedIcon />, roles: [ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.ADMIN] },
   { label: 'Investigation', to: '/investigation', icon: <FindInPageOutlinedIcon />, roles: [ROLES.EMPLOYEE, ROLES.ADMIN] },
+  { label: 'Model Performance', to: '/model-performance', icon: <PsychologyOutlinedIcon />, roles: [ROLES.EMPLOYEE, ROLES.ADMIN] },
   { label: 'Reports', to: '/reports', icon: <BarChartOutlinedIcon />, roles: [ROLES.ADMIN] },
   { label: 'Notifications', to: '/notifications', icon: <NotificationsNoneOutlinedIcon />, roles: [ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.ADMIN] },
 ];
