@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "$0")"
 
 echo "=================================================="
 echo "Starting Healthcare Fraud Detection System Setup..."
