@@ -23,6 +23,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Default DB_PROVIDER to sqlite if not set
+if not os.getenv("DB_PROVIDER"):
+    os.environ["DB_PROVIDER"] = "sqlite"
+
 
 class Config:
     # ======================================================

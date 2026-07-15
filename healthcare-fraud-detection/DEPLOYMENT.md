@@ -25,9 +25,25 @@ Before getting started, make sure your system has the following installed:
 
 ---
 
-## 💾 3. Database Schema & Role Constraint Patch
+## 💾 3. Database Schema Setup
 
-To prevent signup errors, the database check constraints must allow the `'customer'` role.
+This project supports both **SQLite** (local, default) and **Supabase** (cloud postgres).
+
+### Option A: SQLite Local Database Setup (Default / Recommended)
+If you want to run the project locally without setting up a Supabase cloud project, you can initialize and seed the local SQLite database.
+
+1. Open your terminal in the project root directory.
+2. Run the database initialization script:
+   ```bash
+   python database/init_db.py
+   ```
+3. Load the pre-configured demo seed data (includes admin and claim officer accounts):
+   ```bash
+   python database/seed_data.py
+   ```
+
+### Option B: Supabase Cloud Database Setup
+To use Supabase instead, you must run the following SQL patch in your Supabase project's SQL editor to support custom user roles and tables:
 
 ### SQL Patch Execution
 1. Open your [Supabase Console](https://supabase.com/dashboard).
