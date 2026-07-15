@@ -136,7 +136,9 @@ Our solution introduces Machine Learning to:
 
 ---
 
-# 🏗️ System Architecture
+# 🏗️ System Architecture & Dual-Database Support
+
+This project utilizes a modern dual-provider database design, allowing for seamless transition between local development and cloud production.
 
 ```
                     Healthcare Fraud Detection System
@@ -161,87 +163,51 @@ Our solution introduces Machine Learning to:
      │              Auto Approval         Explainability
      │              Audit Logs            Probability
      │
-                  SQLite Database
+     └─────────────────────┬──────────────────────┘
+                           │
+             ┌─────────────┴─────────────┐
+             ▼                           ▼
+      SQLite Database            Supabase Cloud
+     (Local Development)     (Production PostgreSQL)
 ```
+
+### 🗄️ Dual-Database Engine (SQLite & Supabase)
+- **SQLite (Default):** Runs locally using `database/claims.db` without requiring an internet connection or external registration. Perfect for testing and offline development.
+- **Supabase (PostgreSQL):** Connects to a cloud database project. Staging or production environments use this option to store users, claims, predictions, and notifications.
+- **Automatic Routing:** The backend dynamically checks the `DB_PROVIDER` environment variable (defaults to `sqlite`). All repositories (`user_repository.py`, `claim_repository.py`, etc.) execute provider-specific SQL calls or API requests depending on this setting.
 
 ---
 
-# ⚙️ Project Workflow
+# ⚙️ Claims Processing Workflow
 
-```
-Claim Submitted (Form/API)
-       │
-       ▼
-Data Validation (Validators)
-       │
-       ▼
-Preprocessing & Feature Engineering (predict.py)
-       │
-       ▼
-XGBoost Fraud Detection Model
-       │
-       ▼
-Fraud Probability (0-100%)
-       │
-       ▼
-Risk Engine
-       │
- ┌─────┼───────────────┐
- │     │               │
- ▼     ▼               ▼
-Low  Medium          High
-(<30%) (30-70%)      (>=70%)
- │     │               │
- ▼     ▼               ▼
-Auto  Claim          Fraud
-Approve Officer   Investigator
- │     │               │
- └─────┴───────────────┘
-       │
-       ▼
-Database Updates (SQLite ORM)
-       │
-       ▼
-Audit Logs & Notifications
-       │
-       ▼
-Dashboard & Reports Update
-```
+When a healthcare claim is submitted, it goes through a multi-stage validation, scoring, and routing pipeline:
+
+1. **Submission:** Claim data (including diagnosis/procedure codes, claim amounts, length of stay, state, and provider information) is sent via the REST API.
+2. **Feature Engineering:** The ML inference engine computes dynamic features:
+   - **Approval Ratio:** Approved Amount divided by Claim Amount.
+   - **High Claim:** Flags claims with amounts exceeding $700.
+   - **Long Stay:** Flags stays of 7 days or longer.
+   - **Frequent Visitor:** Flags patients with 5+ visits in the past year.
+   - **High Provider Load:** Flags healthcare providers with 70+ monthly claims.
+   - **Risk Score:** Combined sum of all flag features.
+3. **ML Scoring:** A Keras 3 neural network model (trained with a PyTorch backend) predicts the probability of fraud.
+4. **Intelligent Risk Engine Routing:**
+   - 🟢 **Low Risk (<30%):** Automatically sets status to `APPROVED`, writes to audit logs, and triggers a success notification.
+   - 🟡 **Medium Risk (30% to 70%):** Sets status to `UNDER_REVIEW` and routes the claim to the Claim Officer's review queue.
+   - 🔴 **High Risk (>=70%):** Sets status to `INVESTIGATION` and routes the claim to the Fraud Investigator's high-risk queue.
+5. **Human-in-the-Loop Decision:** Claims officers and investigators review explanation tags, modify status, and commit final approvals/rejections.
+6. **Audit Trail:** Every transition is tracked by the system audit logger.
 
 ---
 
-# 🧠 Machine Learning Pipeline
+# 🧠 Machine Learning & Inference Pipeline
 
-```
-Dataset
-   │
-   ▼
-Data Cleaning (Duplicate Removal)
-   │
-   ▼
-Missing Value Handling (Imputers)
-   │
-   ▼
-Encoding & Scaling (OneHot / StandardScaler)
-   │
-   ▼
-Feature Engineering (Approval Ratio, Risk Score)
-   │
-   ▼
-Train/Test Split
-   │
-   ▼
-Model Training (XGBoost / RandomForest Classifier)
-   │
-   ▼
-Model Evaluation
-   │
-   ▼
-Best Model Saved (best_model.pkl)
-   │
-   ▼
-Prediction API (predict.py wrapper)
-```
+The core AI capability of the system is powered by Keras 3:
+
+- **Model Engine:** Keras 3 neural network classifier using PyTorch backend (`best_model.keras`).
+- **Preprocessor:** Numerical features (imputation + standard scaling) and categorical features (One-Hot encoding) are transformed using a serialized preprocessor pipeline (`preprocessor_keras.pkl`).
+- **Explainability Module:** If a claim gets flagged, the system inspects the computed features (e.g. high claim amount, visit frequency) and automatically generates natural language reason tags so investigators understand *why* the model scored the claim as suspicious.
+- **Alternative Models:** Scikit-Learn classifiers (XGBoost, Random Forest, Logistic Regression, Decision Tree) are also preserved for evaluation and performance benchmarking.
 
 ---
 
@@ -276,6 +242,64 @@ healthcare-fraud-detection/
 ├── docs/                           # Empty placeholder specifications
 └── README.md                       # Main documentation (this file)
 ```
+
+---
+
+# 🚀 Setup & Run Instructions
+
+This project supports running in **SQLite mode** (local development, default) or **Supabase mode** (cloud Postgres database).
+
+For detailed configuration options, see [DEPLOYMENT.md](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/healthcare-fraud-detection/DEPLOYMENT.md).
+
+### 1. Prerequisites
+- **Python:** 3.11+
+- **Node.js:** 18+
+
+### 2. Backend Setup
+1. Navigate to the backend directory:
+   ```bash
+   cd healthcare-fraud-detection/backend
+   ```
+2. Set up virtual environment and install dependencies:
+   ```bash
+   python -m venv .venv
+   # Windows:
+   .venv\Scripts\activate
+   # macOS/Linux:
+   source .venv/bin/activate
+   
+   pip install -r requirements.txt
+   ```
+3. Copy environment variables:
+   ```bash
+   copy .env.example .env
+   ```
+4. Initialize and seed the local database:
+   ```bash
+   # From root directory:
+   python database/init_db.py
+   python database/seed_data.py
+   ```
+5. Start backend:
+   ```bash
+   python app.py
+   ```
+
+### 3. Frontend Setup
+1. Navigate to the frontend directory:
+   ```bash
+   cd healthcare-fraud-detection/frontend
+   ```
+2. Install packages:
+   ```bash
+   npm install
+   ```
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
+4. Access the portal at `http://localhost:5173`.
+
 
 ---
 

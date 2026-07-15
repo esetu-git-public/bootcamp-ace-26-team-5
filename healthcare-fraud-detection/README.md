@@ -1,36 +1,17 @@
-# Dependencies
-node_modules/
-frontend/node_modules/
-backend/node_modules/
+# 🏥 Healthcare Insurance Claim Fraud Detection System
 
-# Build output
-frontend/dist/
-frontend/build/
+This is the main project directory containing the complete source code for the **Healthcare Insurance Claim Fraud Detection System**.
 
-# Environment variables
-.env
-.env.local
-*.env
+## 📁 Sub-directories
 
-# Python
-__pycache__/
-*.pyc
-venv/
-.venv/
+- **[backend](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/healthcare-fraud-detection/backend)**: Flask REST API, routing, services, and repositories.
+- **[frontend](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/healthcare-fraud-detection/frontend)**: React + Vite Single Page Application for dashboards, claim submission, investigation, and reporting.
+- **[database](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/healthcare-fraud-detection/database)**: SQLite database creation and demo seeding scripts.
+- **[ml](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/healthcare-fraud-detection/ml)**: Machine learning training notebooks, inference code, and Keras 3 neural network model artifacts.
 
-# ML artifacts
-ml/*.pkl
-ml/*.model
-ml/checkpoints/
+## 📖 Main Documentation
 
-# OS files
-.DS_Store
-Thumbs.db
+Please refer to the following files in the project workspace for setup, deployment, and detailed instructions:
 
-# Editor
-.vscode/
-.idea/
-
-# Logs
-*.log
-npm-debug.log*
+1. **[Root README.md](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/README.md)**: Main project documentation, workflow architecture, and step-by-step setup guides.
+2. **[DEPLOYMENT.md](file:///d:/ML%20bootcamp%20project/bootcamp-ace-26-team-5/healthcare-fraud-detection/DEPLOYMENT.md)**: Comprehensive teammate configuration and database patch execution guides.
