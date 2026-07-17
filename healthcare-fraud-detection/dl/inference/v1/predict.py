@@ -118,14 +118,20 @@ def predict_claim(claim_data: dict) -> dict:
     # Combine DL Probability and Business Rule Score
     final_probability = raw_probability + br_adjustment
 
-    # Sigmoid Saturation Guardrail: prevent extreme outlier bypass
-    if (length_of_stay >= 7 or claim_amount > 5000 or risk_score >= 2) and final_probability < 0.30:
-        final_probability = 0.75
-        br_adjustment = final_probability - raw_probability
-        if "High Claim Amount" not in reasons and claim_amount > 5000:
-            reasons.append("High Claim Amount")
-        if "Long Hospital Stay" not in reasons and length_of_stay >= 7:
-            reasons.append("Long Hospital Stay")
+    # Sigmoid Saturation Guardrail: prevent extreme outlier bypass and enforce proper risk levels
+    if length_of_stay >= 30 or claim_amount > 20000:
+        if final_probability < 0.85:
+            final_probability = 0.85
+            br_adjustment = final_probability - raw_probability
+    elif length_of_stay >= 7 or claim_amount > 5000 or risk_score >= 2:
+        if final_probability < 0.75:
+            final_probability = 0.75
+            br_adjustment = final_probability - raw_probability
+
+    if "High Claim Amount" not in reasons and claim_amount > 5000:
+        reasons.append("High Claim Amount")
+    if "Long Hospital Stay" not in reasons and length_of_stay >= 7:
+        reasons.append("Long Hospital Stay")
 
     # Clamp probability to valid range [0.01, 0.99]
     final_probability = min(0.99, max(0.01, final_probability))
