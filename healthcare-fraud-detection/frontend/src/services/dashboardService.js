@@ -1,5 +1,6 @@
 import api, { USE_MOCK, mockDelay } from './api';
-import { mockClaims, computeDashboard, mockProviderDistribution, mockInsuranceDistribution } from './mockData';
+import { computeDashboard, mockProviderDistribution, mockInsuranceDistribution } from './mockData';
+import { claimsStore } from './claimsService';
 
 function mapDashboardFromBackend(d) {
   if (!d) return null;
@@ -10,6 +11,10 @@ function mapDashboardFromBackend(d) {
   const fraud = rawKpis.fraud_claims || 0;
   const genuine = rawKpis.approved_claims || 0;
   const pending = rawKpis.pending_claims || 0;
+  
+  const totalUsers = rawKpis.total_users || 0;
+  const totalPolicies = rawKpis.total_policies || 0;
+  const recentLogs = d.recent_logs || [];
   
   const fraudPct = total > 0 ? Math.round((fraud / total) * 1000) / 10 : 0.0;
 
@@ -47,7 +52,11 @@ function mapDashboardFromBackend(d) {
       fraud,
       genuine,
       pending,
-      highRisk: risk.High || 0,
+      totalUsers,
+      totalPolicies,
+      highRisk: risk.High || rawKpis.high_risk_claims || 0,
+      mediumRisk: rawKpis.medium_risk_claims || 0,
+      reviewedClaims: rawKpis.reviewed_claims || 0,
       fraudPct,
       averageAmount: rawKpis.average_claim_amount || 0.0
     },
@@ -55,13 +64,14 @@ function mapDashboardFromBackend(d) {
     riskDistribution,
     statusDistribution,
     recentClaims: [],
+    recentLogs,
     providerDistribution,
     insuranceDistribution
   };
 }
 
 export async function getDashboard(role) {
-  if (USE_MOCK) return mockDelay(computeDashboard(mockClaims), 500);
+  if (USE_MOCK) return mockDelay(computeDashboard(claimsStore), 500);
   
   // Choose endpoint explicitly based on role
   let endpoint = '/dashboard';
@@ -78,7 +88,7 @@ export async function getDashboard(role) {
 
 export async function getReports() {
   if (USE_MOCK) {
-    const base = computeDashboard(mockClaims);
+    const base = computeDashboard(claimsStore);
     return mockDelay({
       ...base,
       providerDistribution: mockProviderDistribution,

@@ -31,16 +31,36 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
     """
     logger.info("Processing claim creation payload...")
     
-    # 1. Check if payload is in frontend form format
-    is_frontend_form = "patientName" in data
+    # 1. Fetch user from user repository if user_id is provided
+    from repositories.user_repository import find_user_by_id
+    user = find_user_by_id(user_id) if user_id else None
+    
+    # Check if payload is in frontend form format or new minified format
+    is_frontend_form = "claimAmount" in data or "patientName" in data
     
     if is_frontend_form:
-        patient_name = data.get("patientName").strip()
-        claim_amount = float(data.get("claimAmount"))
-        gender = data.get("gender", "Male").strip().capitalize()
-        age = int(data.get("age", 45))
-        diagnosis = data.get("diagnosis", "I10").strip()
-        hospital = data.get("hospital", "General Hospital").strip()
+        # Determine Patient Name
+        if "patientName" in data:
+            patient_name = data.get("patientName").strip()
+            gender = data.get("gender", "Male").strip().capitalize()
+            age = int(data.get("age", 45))
+            diagnosis = data.get("diagnosis", "I10").strip()
+            hospital = data.get("hospital", "General Hospital").strip()
+            procedure = 99214 # fallback
+            length_of_stay = int(data.get("lengthOfStay" if "lengthOfStay" in data else "length_of_stay", 0))
+            service_date_str = data.get("dates", {}).get("serviceDate") or data.get("serviceDate")
+        else:
+            # Minified optimized format
+            patient_name = user.full_name if user else "Ava Thompson"
+            gender = "Female" # Default
+            age = int(data.get("age", 45))
+            diagnosis = data.get("diagnosis", "I10").strip()
+            hospital = data.get("provider", "General Hospital").strip()
+            procedure = int(data.get("procedure", 99214))
+            length_of_stay = int(data.get("lengthOfStay", 0))
+            service_date_str = data.get("serviceDate")
+            
+        claim_amount = float(data.get("claimAmount") or data.get("claim_amount", 150.0))
         
         # Resolve or create a Policyholder
         holder = find_policyholder_by_name(patient_name)
@@ -49,6 +69,7 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
                 full_name=patient_name,
                 gender=gender,
                 date_of_birth=date.today() - timedelta(days=age * 365.25),
+                email=user.email if user else None,
                 city="Hyderabad",
                 state="Telangana"
             )
@@ -61,7 +82,7 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
             policy = InsurancePolicy(
                 policy_number=policy_num,
                 policyholder_id=holder.policyholder_id,
-                insurance_type="Health",
+                insurance_type="Private",
                 start_date=date.today() - timedelta(days=180),
                 end_date=date.today() + timedelta(days=180),
                 premium_amount=15000.0,
@@ -72,11 +93,18 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
         policy_id = policy.policy_id
         claim_type = "Medical"
         incident_desc = f"Treatment for diagnosis: {diagnosis} at {hospital}."
-        incident_loc = "Hyderabad"
+        incident_loc = holder.city or "Hyderabad"
         police_report = 0
         witnesses = 0
         claim_date_obj = date.today()
-        incident_date_obj = claim_date_obj - timedelta(days=1)
+        
+        if service_date_str:
+            try:
+                incident_date_obj = datetime.strptime(service_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                incident_date_obj = claim_date_obj - timedelta(days=1)
+        else:
+            incident_date_obj = claim_date_obj - timedelta(days=1)
         
     else:
         # Standard database API format
@@ -88,6 +116,9 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
         incident_loc = data.get("incident_location", "")
         police_report = int(data.get("police_report_available", 0))
         witnesses = int(data.get("witnesses_count", 0))
+        procedure = int(data.get("procedure_code") or 99213)
+        length_of_stay = int(data.get("length_of_stay") or 2)
+        hospital = data.get("provider_name") or "General Hospital"
         
         claim_date_str = data.get("claim_date")
         claim_date_obj = datetime.strptime(claim_date_str, "%Y-%m-%d").date()
@@ -114,7 +145,12 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
         police_report_available=police_report,
         witnesses_count=witnesses,
         claim_status="submitted",
-        submitted_by=user_id
+        submitted_by=user_id,
+        diagnosis_code=diagnosis,
+        procedure_code=str(procedure),
+        provider_name=hospital,
+        length_of_stay=length_of_stay,
+        visit_type="Inpatient" if length_of_stay > 0 else "Outpatient"
     )
     
     # Insert Claim to generate ID
@@ -141,23 +177,64 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
         except ValueError:
             dob = None
 
+    # Calculate actual age or fallback to input
+    if dob:
+        calculated_age = int((date.today() - dob).days / 365.25)
+    else:
+        calculated_age = int(data.get("age", 45))
+
+    # Infer specialty dynamically based on procedure CPT code
+    proc_code = int(claim.procedure_code or 99213)
+    def infer_specialty(p_code):
+        code_str = str(p_code)
+        if code_str.startswith("7"):
+            return "Radiology"
+        elif code_str.startswith("93") or code_str.startswith("94"):
+            return "Cardiology"
+        elif code_str.startswith("99"):
+            return "General Practice"
+        else:
+            return "Internal Medicine"
+            
+    specialty = infer_specialty(proc_code)
+
+    # Dynamic count of claims for this provider monthly
+    provider_monthly_claims = 30 # default fallback
+    try:
+        from repositories.claim_repository import count_claims_for_provider_monthly
+        provider_monthly_claims = count_claims_for_provider_monthly(claim.provider_name)
+        if provider_monthly_claims == 0:
+            provider_monthly_claims = 30 # fallback if first claim
+    except Exception as e:
+        logger.warning(f"Error querying provider monthly claims: {e}")
+
+    # Dynamic count of claims for this policyholder in last 12m
+    prior_visits = 1 # default fallback
+    try:
+        from repositories.claim_repository import count_claims_last_12m_by_policy
+        prior_visits = count_claims_last_12m_by_policy(policy_id)
+        if prior_visits == 0:
+            prior_visits = 1
+    except Exception as e:
+        logger.warning(f"Error querying claims last 12m: {e}")
+
     ml_payload = {
-        "Patient_Age": int((date.today() - dob).days / 365.25) if dob else 45,
+        "Patient_Age": calculated_age,
         "Patient_Gender": holder_obj.gender or "Male",
-        "Diagnosis_Code": diagnosis if is_frontend_form else "I10", # fallback code
-        "Procedure_Code": 99214 if is_frontend_form else 99213,
-        "Claim_Amount": claim_amount,
-        "Approved_Amount": claim_amount * 0.8, # fallback
-        "Insurance_Type": policy_obj.insurance_type,
+        "Diagnosis_Code": claim.diagnosis_code or "I10",
+        "Procedure_Code": proc_code,
+        "Claim_Amount": claim.claim_amount,
+        "Approved_Amount": claim.claim_amount * 0.8, # 80% approved amount prediction helper
+        "Insurance_Type": policy_obj.insurance_type or "Private",
         "Days_Between_Service_and_Claim": (claim.claim_date - claim.incident_date).days if isinstance(claim.claim_date, (date, datetime)) and isinstance(claim.incident_date, (date, datetime)) else 1,
-        "Number_of_Claims_Per_Provider_Monthly": 30,
-        "Provider_Specialty": "General Practice",
+        "Number_of_Claims_Per_Provider_Monthly": provider_monthly_claims,
+        "Provider_Specialty": specialty,
         "Patient_State": holder_obj.state or "TX",
         "Claim_Status": "Pending",
-        "Length_of_Stay": 2,
-        "Visit_Type": "Emergency" if is_frontend_form and data.get("hospital") else "Outpatient",
+        "Length_of_Stay": claim.length_of_stay,
+        "Visit_Type": claim.visit_type or "Outpatient",
         "Chronic_Condition_Flag": 0,
-        "Prior_Visits_12m": 1
+        "Prior_Visits_12m": prior_visits
     }
 
     # Execute ML scoring & save prediction record
@@ -168,6 +245,8 @@ def create_claim_from_payload(data: dict, user_id: int = None) -> InsuranceClaim
         claim_id=claim.claim_id,
         predicted_label=prediction_result["predicted_label"],
         fraud_probability=prediction_result["fraud_probability"],
+        raw_probability=prediction_result.get("raw_probability", 0.0),
+        business_rule_adjustment=prediction_result.get("business_rule_adjustment", 0.0),
         risk_level=prediction_result["risk_level"],
         model_version=prediction_result["model_version"],
         remarks=", ".join(prediction_result["reasons"])

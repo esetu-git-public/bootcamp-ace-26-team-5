@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS insurance_claims (
     witnesses_count INTEGER DEFAULT 0,
     claim_status TEXT DEFAULT 'submitted',
     submitted_by INTEGER,
+    diagnosis_code TEXT,
+    procedure_code TEXT,
+    provider_name TEXT,
+    length_of_stay INTEGER DEFAULT 0,
+    visit_type TEXT DEFAULT 'Outpatient',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (policy_id)
@@ -73,6 +78,8 @@ CREATE TABLE IF NOT EXISTS fraud_predictions (
     claim_id INTEGER NOT NULL,
     predicted_label TEXT NOT NULL CHECK (predicted_label IN ('Fraud', 'Not Fraud')),
     fraud_probability REAL NOT NULL CHECK (fraud_probability >= 0 AND fraud_probability <= 1),
+    raw_probability REAL DEFAULT 0.0,
+    business_rule_adjustment REAL DEFAULT 0.0,
     risk_level TEXT CHECK (risk_level IN ('Low', 'Medium', 'High')),
     model_version TEXT,
     prediction_date DATETIME DEFAULT CURRENT_TIMESTAMP,

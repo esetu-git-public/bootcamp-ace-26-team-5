@@ -129,7 +129,7 @@ class InsurancePolicy:
 
 
 class InsuranceClaim:
-    def __init__(self, claim_id=None, claim_number="", policy_id=None, claim_date=None, incident_date=None, claim_type=None, claim_amount=None, incident_location=None, incident_description=None, police_report_available=0, witnesses_count=0, claim_status="submitted", submitted_by=None, created_at=None, prediction=None):
+    def __init__(self, claim_id=None, claim_number="", policy_id=None, claim_date=None, incident_date=None, claim_type=None, claim_amount=None, incident_location=None, incident_description=None, police_report_available=0, witnesses_count=0, claim_status="submitted", submitted_by=None, diagnosis_code=None, procedure_code=None, provider_name=None, length_of_stay=0, visit_type="Outpatient", created_at=None, prediction=None):
         self.claim_id = claim_id
         self.claim_number = claim_number
         self.policy_id = policy_id
@@ -143,6 +143,11 @@ class InsuranceClaim:
         self.witnesses_count = witnesses_count
         self.claim_status = claim_status
         self.submitted_by = submitted_by
+        self.diagnosis_code = diagnosis_code
+        self.procedure_code = procedure_code
+        self.provider_name = provider_name
+        self.length_of_stay = length_of_stay
+        self.visit_type = visit_type
         self.created_at = created_at or datetime.utcnow()
         self.prediction = prediction  # FraudPrediction object or dict
 
@@ -168,6 +173,11 @@ class InsuranceClaim:
             witnesses_count=data.get("witnesses_count", 0),
             claim_status=data.get("claim_status", "submitted"),
             submitted_by=data.get("submitted_by"),
+            diagnosis_code=data.get("diagnosis_code"),
+            procedure_code=data.get("procedure_code"),
+            provider_name=data.get("provider_name"),
+            length_of_stay=data.get("length_of_stay", 0),
+            visit_type=data.get("visit_type", "Outpatient"),
             created_at=data.get("created_at"),
             prediction=pred
         )
@@ -193,17 +203,24 @@ class InsuranceClaim:
             "witnesses_count": self.witnesses_count,
             "claim_status": self.claim_status,
             "submitted_by": self.submitted_by,
+            "diagnosis_code": self.diagnosis_code,
+            "procedure_code": self.procedure_code,
+            "provider_name": self.provider_name,
+            "length_of_stay": self.length_of_stay,
+            "visit_type": self.visit_type,
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "policy": getattr(self, "policy_embedded", None)
         }
 
 
 class FraudPrediction:
-    def __init__(self, prediction_id=None, claim_id=None, predicted_label="", fraud_probability=0.0, risk_level=None, model_version="v1.0", prediction_date=None, remarks=None):
+    def __init__(self, prediction_id=None, claim_id=None, predicted_label="", fraud_probability=0.0, raw_probability=0.0, business_rule_adjustment=0.0, risk_level=None, model_version="v1.0", prediction_date=None, remarks=None):
         self.prediction_id = prediction_id
         self.claim_id = claim_id
         self.predicted_label = predicted_label
         self.fraud_probability = fraud_probability
+        self.raw_probability = raw_probability
+        self.business_rule_adjustment = business_rule_adjustment
         self.risk_level = risk_level
         self.model_version = model_version
         self.prediction_date = prediction_date or datetime.utcnow()
@@ -218,6 +235,8 @@ class FraudPrediction:
             claim_id=data.get("claim_id"),
             predicted_label=data.get("predicted_label"),
             fraud_probability=data.get("fraud_probability", 0.0),
+            raw_probability=data.get("raw_probability", 0.0),
+            business_rule_adjustment=data.get("business_rule_adjustment", 0.0),
             risk_level=data.get("risk_level"),
             model_version=data.get("model_version", "v1.0"),
             prediction_date=data.get("prediction_date"),
@@ -236,6 +255,10 @@ class FraudPrediction:
             "predictedLabel": self.predicted_label,
             "fraud_probability": self.fraud_probability,
             "probability": self.fraud_probability,
+            "raw_probability": self.raw_probability,
+            "rawProbability": self.raw_probability,
+            "business_rule_adjustment": self.business_rule_adjustment,
+            "businessRuleAdjustment": self.business_rule_adjustment,
             "risk_level": self.risk_level,
             "riskLevel": self.risk_level,
             "model_version": self.model_version,

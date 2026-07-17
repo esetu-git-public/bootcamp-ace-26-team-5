@@ -83,7 +83,7 @@ export async function logout() {
 
 export async function fetchMe() {
   if (USE_MOCK) {
-    const raw = localStorage.getItem('cg_user');
+    const raw = sessionStorage.getItem('cg_user');
     return mockDelay(raw ? JSON.parse(raw) : null, 200);
   }
   const { data } = await api.get('/auth/me');

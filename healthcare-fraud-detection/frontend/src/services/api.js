@@ -14,7 +14,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('cg_access_token');
+  const token = sessionStorage.getItem('cg_access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -27,16 +27,16 @@ api.interceptors.response.use(
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      const refreshToken = localStorage.getItem('cg_refresh_token');
+      const refreshToken = sessionStorage.getItem('cg_refresh_token');
       if (refreshToken) {
         try {
           const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-          localStorage.setItem('cg_access_token', data.accessToken);
+          sessionStorage.setItem('cg_access_token', data.accessToken);
           original.headers.Authorization = `Bearer ${data.accessToken}`;
           return api(original);
         } catch (refreshError) {
-          localStorage.removeItem('cg_access_token');
-          localStorage.removeItem('cg_refresh_token');
+          sessionStorage.removeItem('cg_access_token');
+          sessionStorage.removeItem('cg_refresh_token');
           window.location.href = '/login';
         }
       } else {

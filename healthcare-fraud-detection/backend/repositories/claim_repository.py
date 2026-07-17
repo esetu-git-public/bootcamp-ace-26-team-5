@@ -142,7 +142,12 @@ def save_claim(claim: InsuranceClaim) -> InsuranceClaim:
         "police_report_available": int(claim.police_report_available),
         "witnesses_count": int(claim.witnesses_count),
         "claim_status": claim.claim_status,
-        "submitted_by": claim.submitted_by
+        "submitted_by": claim.submitted_by,
+        "diagnosis_code": claim.diagnosis_code,
+        "procedure_code": claim.procedure_code,
+        "provider_name": claim.provider_name,
+        "length_of_stay": int(claim.length_of_stay) if claim.length_of_stay is not None else 0,
+        "visit_type": claim.visit_type
     }
     
     if os.getenv("DB_PROVIDER") == "sqlite":
@@ -154,24 +159,30 @@ def save_claim(claim: InsuranceClaim) -> InsuranceClaim:
                         """UPDATE insurance_claims SET claim_number = ?, policy_id = ?, claim_date = ?, 
                            incident_date = ?, claim_type = ?, claim_amount = ?, incident_location = ?, 
                            incident_description = ?, police_report_available = ?, witnesses_count = ?, 
-                           claim_status = ?, submitted_by = ? WHERE claim_id = ?""",
+                           claim_status = ?, submitted_by = ?, diagnosis_code = ?, procedure_code = ?,
+                           provider_name = ?, length_of_stay = ?, visit_type = ? WHERE claim_id = ?""",
                         (payload["claim_number"], payload["policy_id"], payload["claim_date"],
                          payload["incident_date"], payload["claim_type"], payload["claim_amount"],
                          payload["incident_location"], payload["incident_description"],
                          payload["police_report_available"], payload["witnesses_count"],
-                         payload["claim_status"], payload["submitted_by"], claim.claim_id)
+                         payload["claim_status"], payload["submitted_by"], payload["diagnosis_code"],
+                         payload["procedure_code"], payload["provider_name"], payload["length_of_stay"],
+                         payload["visit_type"], claim.claim_id)
                     )
                 else:
                     cursor.execute(
                         """INSERT INTO insurance_claims (claim_number, policy_id, claim_date, incident_date, 
                            claim_type, claim_amount, incident_location, incident_description, 
-                           police_report_available, witnesses_count, claim_status, submitted_by) 
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                           police_report_available, witnesses_count, claim_status, submitted_by,
+                           diagnosis_code, procedure_code, provider_name, length_of_stay, visit_type) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (payload["claim_number"], payload["policy_id"], payload["claim_date"],
                          payload["incident_date"], payload["claim_type"], payload["claim_amount"],
                          payload["incident_location"], payload["incident_description"],
                          payload["police_report_available"], payload["witnesses_count"],
-                         payload["claim_status"], payload["submitted_by"])
+                         payload["claim_status"], payload["submitted_by"], payload["diagnosis_code"],
+                         payload["procedure_code"], payload["provider_name"], payload["length_of_stay"],
+                         payload["visit_type"])
                     )
                     claim.claim_id = cursor.lastrowid
                 conn.commit()
@@ -337,3 +348,60 @@ def delete_claim(claim_id: int) -> bool:
     except Exception as e:
         print(f"Error deleting claim: {e}")
         return False
+
+
+def count_claims_last_12m_by_policy(policy_id: int) -> int:
+    """
+    Count the number of claims submitted under this policy in the last 12 months.
+    """
+    if os.getenv("DB_PROVIDER") == "sqlite":
+        try:
+            with get_sqlite_conn() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) as count FROM insurance_claims WHERE policy_id = ? AND claim_date >= date('now', '-12 months')",
+                    (policy_id,)
+                ).fetchone()
+                if row:
+                    return row["count"]
+        except Exception as e:
+            print(f"Error counting SQLite claims for policy {policy_id}: {e}")
+        return 0
+
+    try:
+        import datetime
+        one_year_ago = (datetime.date.today() - datetime.timedelta(days=365)).isoformat()
+        res = supabase.table("insurance_claims").select("claim_id", count="exact").eq("policy_id", policy_id).gte("claim_date", one_year_ago).execute()
+        return res.count if res.count is not None else 0
+    except Exception as e:
+        print(f"Error counting claims: {e}")
+    return 0
+
+
+def count_claims_for_provider_monthly(provider_name: str) -> int:
+    """
+    Count the number of claims submitted under this provider name in the last 30 days.
+    """
+    if not provider_name:
+        return 0
+    if os.getenv("DB_PROVIDER") == "sqlite":
+        try:
+            with get_sqlite_conn() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) as count FROM insurance_claims WHERE provider_name = ? AND claim_date >= date('now', '-30 days')",
+                    (provider_name.strip(),)
+                ).fetchone()
+                if row:
+                    return row["count"]
+        except Exception as e:
+            print(f"Error counting SQLite claims for provider: {e}")
+        return 0
+
+    try:
+        import datetime
+        thirty_days_ago = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+        res = supabase.table("insurance_claims").select("claim_id", count="exact").eq("provider_name", provider_name.strip()).gte("claim_date", thirty_days_ago).execute()
+        return res.count if res.count is not None else 0
+    except Exception as e:
+        print(f"Error counting provider claims: {e}")
+    return 0
+

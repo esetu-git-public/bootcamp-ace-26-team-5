@@ -36,6 +36,8 @@ def save_prediction(prediction: FraudPrediction) -> FraudPrediction:
         "claim_id": prediction.claim_id,
         "predicted_label": prediction.predicted_label,
         "fraud_probability": prediction.fraud_probability,
+        "raw_probability": prediction.raw_probability,
+        "business_rule_adjustment": prediction.business_rule_adjustment,
         "risk_level": prediction.risk_level,
         "model_version": prediction.model_version,
         "remarks": prediction.remarks,
@@ -49,19 +51,23 @@ def save_prediction(prediction: FraudPrediction) -> FraudPrediction:
                 if existing:
                     cursor.execute(
                         """UPDATE fraud_predictions SET predicted_label = ?, fraud_probability = ?, 
+                           raw_probability = ?, business_rule_adjustment = ?,
                            risk_level = ?, model_version = ?, remarks = ?, prediction_date = ? 
                            WHERE prediction_id = ?""",
-                        (payload["predicted_label"], payload["fraud_probability"], payload["risk_level"],
-                         payload["model_version"], payload["remarks"], payload["prediction_date"],
-                         existing.prediction_id)
+                        (payload["predicted_label"], payload["fraud_probability"],
+                         payload["raw_probability"], payload["business_rule_adjustment"],
+                         payload["risk_level"], payload["model_version"], payload["remarks"],
+                         payload["prediction_date"], existing.prediction_id)
                     )
                     prediction.prediction_id = existing.prediction_id
                 else:
                     cursor.execute(
                         """INSERT INTO fraud_predictions (claim_id, predicted_label, fraud_probability, 
+                           raw_probability, business_rule_adjustment, 
                            risk_level, model_version, remarks, prediction_date) 
-                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (payload["claim_id"], payload["predicted_label"], payload["fraud_probability"],
+                         payload["raw_probability"], payload["business_rule_adjustment"],
                          payload["risk_level"], payload["model_version"], payload["remarks"],
                          payload["prediction_date"])
                     )

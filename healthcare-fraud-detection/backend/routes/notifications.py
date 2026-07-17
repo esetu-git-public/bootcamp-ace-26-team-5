@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from services.notification_service import get_user_notifications
@@ -33,6 +34,18 @@ def mark_notification_as_read(notification_id):
     PATCH /api/notifications/{id}/read
     Marks a notification as read.
     """
+    if os.getenv("DB_PROVIDER") == "sqlite":
+        from utils.sqlite_client import get_sqlite_conn
+        try:
+            with get_sqlite_conn() as conn:
+                cursor = conn.execute("UPDATE notifications SET is_read = 1 WHERE notification_id = ?", (notification_id,))
+                conn.commit()
+                if cursor.rowcount > 0:
+                    return success_response(message="Notification marked as read")
+                return error_response("Notification not found", 404)
+        except Exception as e:
+            return error_response(message=f"Database error: {e}", status_code=500)
+
     try:
         res = supabase.table("notifications").update({"is_read": True}).eq("notification_id", notification_id).execute()
         if res.data:
@@ -50,6 +63,18 @@ def delete_notification(notification_id):
     DELETE /api/notifications/{id}
     Deletes a notification.
     """
+    if os.getenv("DB_PROVIDER") == "sqlite":
+        from utils.sqlite_client import get_sqlite_conn
+        try:
+            with get_sqlite_conn() as conn:
+                cursor = conn.execute("DELETE FROM notifications WHERE notification_id = ?", (notification_id,))
+                conn.commit()
+                if cursor.rowcount > 0:
+                    return success_response(message="Notification deleted successfully")
+                return error_response("Notification not found", 404)
+        except Exception as e:
+            return error_response(message=f"Database error: {e}", status_code=500)
+
     try:
         res = supabase.table("notifications").delete().eq("notification_id", notification_id).execute()
         if res.data:

@@ -1,21 +1,21 @@
 from datetime import datetime
 
+from datetime import datetime
+
 def validate_claim_payload(data: dict) -> tuple[bool, str]:
     """
-    Validate claims input data. Supports standard database format and frontend form format.
+    Validate claims input data. Supports standard database format, old frontend format,
+    and the new minified optimized frontend format.
     Returns (is_valid, error_message).
     """
     if not data:
         return False, "Request payload is empty"
 
-    # 1. Check if it's the frontend form format
-    if "patientName" in data or "claimAmount" in data:
-        patient_name = data.get("patientName")
+    # 1. Check if it's the new optimized frontend format or old frontend format
+    is_frontend = "claimAmount" in data or "patientName" in data or "serviceDate" in data
+    
+    if is_frontend:
         claim_amount = data.get("claimAmount")
-        
-        if not patient_name or not patient_name.strip():
-            return False, "Patient name is required"
-            
         if claim_amount is None:
             return False, "Claim amount is required"
             
@@ -25,7 +25,33 @@ def validate_claim_payload(data: dict) -> tuple[bool, str]:
                 return False, "Claim amount must be greater than zero"
         except ValueError:
             return False, "Claim amount must be a valid number"
-            
+
+        # Check for serviceDate (required in new optimized format)
+        service_date = data.get("serviceDate")
+        if service_date:
+            try:
+                datetime.strptime(str(service_date), "%Y-%m-%d")
+            except ValueError:
+                return False, "Service date must be in YYYY-MM-DD format"
+        elif "patientName" not in data:
+            # If not old format, serviceDate is required
+            return False, "Service date is required"
+
+        # Check provider/hospital
+        provider = data.get("provider") or data.get("hospital")
+        if not provider and "patientName" not in data:
+            return False, "Provider / Hospital name is required"
+
+        # Check diagnosis
+        diagnosis = data.get("diagnosis")
+        if not diagnosis and "patientName" not in data:
+            return False, "Diagnosis is required"
+
+        # Check procedure
+        procedure = data.get("procedure")
+        if not procedure and "patientName" not in data:
+            return False, "Procedure code is required"
+
         return True, ""
 
     # 2. Check if it's the standard database API format

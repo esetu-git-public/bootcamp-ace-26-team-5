@@ -27,7 +27,7 @@ def generate_reports():
             from utils.sqlite_client import get_sqlite_conn
             with get_sqlite_conn() as conn:
                 rows = conn.execute(
-                    """SELECT c.claim_id, c.claim_type, c.incident_description, p.insurance_type 
+                    """SELECT c.claim_id, c.claim_type, c.provider_name, c.incident_description, p.insurance_type 
                        FROM insurance_claims c
                        LEFT JOIN insurance_policies p ON c.policy_id = p.policy_id"""
                 ).fetchall()
@@ -36,6 +36,7 @@ def generate_reports():
                     claims_list.append({
                         "claim_id": r["claim_id"],
                         "claim_type": r["claim_type"],
+                        "provider_name": r["provider_name"],
                         "incident_description": r["incident_description"],
                         "policy": {
                             "insurance_type": r["insurance_type"]
@@ -43,7 +44,7 @@ def generate_reports():
                     })
         else:
             res_claims = supabase.table("insurance_claims").select(
-                "claim_id, claim_type, incident_description, policy:insurance_policies(insurance_type)"
+                "claim_id, claim_type, provider_name, incident_description, policy:insurance_policies(insurance_type)"
             ).execute()
             claims_list = res_claims.data if res_claims.data else []
         
@@ -67,21 +68,22 @@ def generate_reports():
         # 3. Compile Provider Distribution
         provider_counts = {}
         for row in claims_list:
-            desc = row.get("incident_description", "")
-            claim_type = row.get("claim_type", "Medical")
-            provider = "General Hospital"
-            if " at " in desc:
-                parts = desc.split(" at ")
-                if len(parts) > 1:
-                    provider = parts[1].split(".")[0].strip()
-            else:
-                # Fallback based on claim type
-                if claim_type == "Medical":
-                    provider = "Sunrise General Hospital"
-                elif claim_type == "Vehicle":
-                    provider = "Auto Care Center"
+            provider = row.get("provider_name")
+            if not provider:
+                desc = row.get("incident_description", "")
+                claim_type = row.get("claim_type", "Medical")
+                if " at " in desc:
+                    parts = desc.split(" at ")
+                    if len(parts) > 1:
+                        provider = parts[1].split(".")[0].strip()
                 else:
-                    provider = "Secure Loss Adjusters"
+                    # Fallback based on claim type
+                    if claim_type == "Medical":
+                        provider = "Sunrise General Hospital"
+                    elif claim_type == "Vehicle":
+                        provider = "Auto Care Center"
+                    else:
+                        provider = "Secure Loss Adjusters"
             provider_counts[provider] = provider_counts.get(provider, 0) + 1
             
         provider_distribution = [

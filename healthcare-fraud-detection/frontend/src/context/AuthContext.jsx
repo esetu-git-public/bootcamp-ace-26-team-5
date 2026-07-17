@@ -14,34 +14,34 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const raw = localStorage.getItem('cg_user');
+    const raw = sessionStorage.getItem('cg_user');
     if (raw) setUser(JSON.parse(raw));
     setLoading(false);
   }, []);
 
   const login = useCallback(async (email, password) => {
     const data = await authService.login(email, password);
-    localStorage.setItem('cg_access_token', data.accessToken);
-    localStorage.setItem('cg_refresh_token', data.refreshToken);
-    localStorage.setItem('cg_user', JSON.stringify(data.user));
+    sessionStorage.setItem('cg_access_token', data.accessToken);
+    sessionStorage.setItem('cg_refresh_token', data.refreshToken);
+    sessionStorage.setItem('cg_user', JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
   }, []);
 
   const signup = useCallback(async (payload) => {
     const data = await authService.signup(payload);
-    localStorage.setItem('cg_access_token', data.accessToken);
-    localStorage.setItem('cg_refresh_token', data.refreshToken);
-    localStorage.setItem('cg_user', JSON.stringify(data.user));
+    sessionStorage.setItem('cg_access_token', data.accessToken);
+    sessionStorage.setItem('cg_refresh_token', data.refreshToken);
+    sessionStorage.setItem('cg_user', JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
   }, []);
 
   const logout = useCallback(async () => {
     try { await authService.logout(); } catch (e) { /* noop */ }
-    localStorage.removeItem('cg_access_token');
-    localStorage.removeItem('cg_refresh_token');
-    localStorage.removeItem('cg_user');
+    sessionStorage.removeItem('cg_access_token');
+    sessionStorage.removeItem('cg_refresh_token');
+    sessionStorage.removeItem('cg_user');
     setUser(null);
   }, []);
 

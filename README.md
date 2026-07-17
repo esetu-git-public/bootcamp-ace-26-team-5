@@ -254,11 +254,17 @@ For detailed configuration options, see [DEPLOYMENT.md](file:///d:/ML%20bootcamp
 ### ⚡ Single-Command Setup & Startup (Recommended)
 You can automatically configure environment variables, initialize/seed the local SQLite database, install all backend and frontend dependencies, and launch both servers concurrently in a single command from the project root folder:
 
-- **Windows:**
-  Using PowerShell (Recommended):
+- **Windows Batch Scripts (Modular):**
+  - **Complete Initial Setup**: Double-click `setup_project.bat` (automatically prepares Python virtual env, installs npm/pip dependencies, and creates/seeds the SQLite database).
+  - **Launch Complete Application**: Double-click `run_project.bat` (starts both backend and frontend servers in separate CMD windows).
+  - **Start Backend Server Only**: Double-click `start_backend.bat` (starts Flask API on port 5001).
+  - **Start Frontend Server Only**: Double-click `start_frontend.bat` (starts React Vite dev server on port 5173).
+
+- **Windows (PowerShell & Legacy bat):**
+  Using PowerShell:
   ```powershell
   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-  .\\run.ps1
+  .\run.ps1
   ```
   Or using Command Prompt:
   ```cmd
@@ -319,6 +325,33 @@ You can automatically configure environment variables, initialize/seed the local
    ```
 4. Access the portal at `http://localhost:5173`.
 
+
+---
+
+# 🔐 Demo Authentication Credentials
+
+To facilitate rapid, multi-role testing during live demonstrations, the local database is seeded with aligned demo accounts for all key system roles. Use the following pre-filled credentials to log in:
+
+### 1. Customer (Policyholder) Portal
+*   **Email Address**: `patient@claimguard.ai`
+*   **Password**: `demo1234`
+*   **Role Profile**: Ava Thompson (linked to Policy `POL-MOCK-1234`)
+*   **Dedicated Entry Route**: [http://localhost:5173/customer](http://localhost:5173/customer)
+
+### 2. Claims Officer Portal
+*   **Email Address**: `officer@claimguard.ai`
+*   **Password**: `demo1234`
+*   **Role Profile**: Priya Sharma (Manual review queue operations)
+*   **Dedicated Entry Route**: [http://localhost:5173/officer](http://localhost:5173/officer)
+
+### 3. Administrator Portal
+*   **Email Address**: `admin@claimguard.ai`
+*   **Password**: `demo1234`
+*   **Role Profile**: Anjali Rao (Full executive metrics & system audit logs)
+*   **Dedicated Entry Route**: [http://localhost:5173/admin](http://localhost:5173/admin)
+
+> [!TIP]
+> You can open each role simultaneously in different browser tabs. Since authentication state is stored in `sessionStorage` rather than `localStorage`, the sessions are isolated and will not overwrite each other!
 
 ---
 

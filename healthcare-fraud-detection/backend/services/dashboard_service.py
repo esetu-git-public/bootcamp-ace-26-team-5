@@ -27,6 +27,8 @@ def get_admin_dashboard_summary() -> dict:
         try:
             with get_sqlite_conn() as conn:
                 total_claims = conn.execute("SELECT COUNT(*) FROM insurance_claims").fetchone()[0]
+                total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+                total_policies = conn.execute("SELECT COUNT(*) FROM insurance_policies").fetchone()[0]
                 approved_claims = conn.execute("SELECT COUNT(*) FROM insurance_claims WHERE claim_status = 'approved'").fetchone()[0]
                 rejected_claims = conn.execute("SELECT COUNT(*) FROM insurance_claims WHERE claim_status = 'rejected'").fetchone()[0]
                 fraud_detected = conn.execute("SELECT COUNT(*) FROM fraud_predictions WHERE predicted_label = 'Fraud'").fetchone()[0]
@@ -78,9 +80,24 @@ def get_admin_dashboard_summary() -> dict:
                 reason_counts = Counter(reasons_list).most_common(5)
                 top_reasons = [{"reason": item[0], "count": item[1]} for item in reason_counts]
                 
+                # Fetch recent audit logs
+                recent_logs = []
+                try:
+                    log_rows = conn.execute("""
+                        SELECT a.log_id, a.action, a.details, a.timestamp, u.full_name as user_name
+                        FROM audit_logs a
+                        LEFT JOIN users u ON a.user_id = u.user_id
+                        ORDER BY a.timestamp DESC LIMIT 5
+                    """).fetchall()
+                    recent_logs = [dict(r) for r in log_rows]
+                except Exception as log_err:
+                    logger.warning(f"Error querying SQLite recent logs: {log_err}")
+                
                 return {
                     "kpis": {
                         "total_claims": total_claims,
+                        "total_users": total_users,
+                        "total_policies": total_policies,
                         "approved_claims": approved_claims,
                         "rejected_claims": rejected_claims,
                         "fraud_claims": fraud_detected,
@@ -89,23 +106,32 @@ def get_admin_dashboard_summary() -> dict:
                     },
                     "risk_distribution": risk_distribution,
                     "monthly_trend": combined_trends,
-                    "top_reasons": top_reasons
+                    "top_reasons": top_reasons,
+                    "recent_logs": recent_logs
                 }
         except Exception as e:
             logger.error(f"Error compiling SQLite admin dashboard: {e}")
             return {
                 "kpis": {
-                    "total_claims": 0, "approved_claims": 0, "rejected_claims": 0,
-                    "fraud_claims": 0, "pending_claims": 0, "average_claim_amount": 0.0
+                    "total_claims": 0, "total_users": 0, "total_policies": 0,
+                    "approved_claims": 0, "rejected_claims": 0, "fraud_claims": 0,
+                    "pending_claims": 0, "average_claim_amount": 0.0
                 },
                 "risk_distribution": {"Low": 0, "Medium": 0, "High": 0},
                 "monthly_trend": [],
-                "top_reasons": []
+                "top_reasons": [],
+                "recent_logs": []
             }
 
     try:
         res_total = supabase.table("insurance_claims").select("claim_id", count="exact").execute()
         total_claims = res_total.count if res_total.count is not None else 0
+        
+        res_users = supabase.table("users").select("user_id", count="exact").execute()
+        total_users = res_users.count if res_users.count is not None else 0
+        
+        res_policies = supabase.table("insurance_policies").select("policy_id", count="exact").execute()
+        total_policies = res_policies.count if res_policies.count is not None else 0
         
         res_approved = supabase.table("insurance_claims").select("claim_id", count="exact").eq("claim_status", "approved").execute()
         approved_claims = res_approved.count if res_approved.count is not None else 0
@@ -179,9 +205,28 @@ def get_admin_dashboard_summary() -> dict:
         reason_counts = Counter(reasons_list).most_common(5)
         top_reasons = [{"reason": item[0], "count": item[1]} for item in reason_counts]
 
+        # Fetch recent audit logs from Supabase
+        recent_logs = []
+        try:
+            res_logs = supabase.table("audit_logs").select("*, user:users(full_name)").order("timestamp", desc=True).limit(5).execute()
+            if res_logs.data:
+                for row in res_logs.data:
+                    user_data = row.get("user") or {}
+                    recent_logs.append({
+                        "log_id": row.get("log_id"),
+                        "action": row.get("action"),
+                        "details": row.get("details"),
+                        "timestamp": row.get("timestamp"),
+                        "user_name": user_data.get("full_name") or "System"
+                    })
+        except Exception as log_err:
+            logger.warning(f"Error querying Supabase recent logs: {log_err}")
+
         return {
             "kpis": {
                 "total_claims": total_claims,
+                "total_users": total_users,
+                "total_policies": total_policies,
                 "approved_claims": approved_claims,
                 "rejected_claims": rejected_claims,
                 "fraud_claims": fraud_detected,
@@ -190,7 +235,21 @@ def get_admin_dashboard_summary() -> dict:
             },
             "risk_distribution": risk_distribution,
             "monthly_trend": combined_trends,
-            "top_reasons": top_reasons
+            "top_reasons": top_reasons,
+            "recent_logs": recent_logs
+        }
+    except Exception as e:
+        logger.error(f"Error compiling admin dashboard: {e}")
+        return {
+            "kpis": {
+                "total_claims": 0, "total_users": 0, "total_policies": 0,
+                "approved_claims": 0, "rejected_claims": 0, "fraud_claims": 0,
+                "pending_claims": 0, "average_claim_amount": 0.0
+            },
+            "risk_distribution": {"Low": 0, "Medium": 0, "High": 0},
+            "monthly_trend": [],
+            "top_reasons": [],
+            "recent_logs": []
         }
     except Exception as e:
         logger.error(f"Error compiling admin dashboard: {e}")

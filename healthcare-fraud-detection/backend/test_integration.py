@@ -131,7 +131,6 @@ class TestIntegrationSuite(unittest.TestCase):
         login_payload = {"email": self.cust_email, "password": self.pwd}
         log_res = self.app.post("/api/auth/login", json=login_payload)
         tokens = json.loads(log_res.data)["data"]
-        
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
         
         # Submit a low amount claim (typically low risk) using frontend form format
@@ -187,9 +186,21 @@ class TestIntegrationSuite(unittest.TestCase):
             "password": self.pwd,
             "role": "employee"
         }
-        self.app.post("/api/auth/signup", json=signup_payload)
+        self.app.post("/api/auth/register", json=signup_payload)
         
-        # 2. Login to get access token
+        # Force the database role to 'employee' (bypassing the public registration customer role lock)
+        if os.getenv("DB_PROVIDER") == "sqlite":
+            from utils.sqlite_client import get_sqlite_conn
+            with get_sqlite_conn() as conn:
+                conn.execute("UPDATE users SET role = 'employee' WHERE email = ?", (self.emp_email,))
+                conn.commit()
+        else:
+            try:
+                self.supabase.table("users").update({"role": "employee"}).eq("email", self.emp_email).execute()
+            except Exception:
+                pass
+        
+        # 2. Login employeet access token
         login_payload = {"email": self.emp_email, "password": self.pwd}
         log_res = self.app.post("/api/auth/login", json=login_payload)
         tokens = json.loads(log_res.data)["data"]

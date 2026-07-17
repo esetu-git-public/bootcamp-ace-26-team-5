@@ -7,6 +7,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import UserDashboard from './pages/UserDashboard';
 import SubmitClaim from './pages/SubmitClaim';
 import ClaimHistory from './pages/ClaimHistory';
 import ClaimDetails from './pages/ClaimDetails';
@@ -23,10 +24,31 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Standard Authentication */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
 
+            {/* Dedicated Role-Prefilled Demo Entry Portals */}
+            <Route path="/customer" element={<Login prefilledRole="customer" />} />
+            <Route path="/officer" element={<Login prefilledRole="officer" />} />
+            <Route path="/admin" element={<Login prefilledRole="admin" />} />
+
+            {/* Standard Combined Routing Endpoint */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+
+            {/* Explicit Role-Specific Protected Dashboards */}
+            <Route
+              path="/customer/dashboard"
+              element={<ProtectedRoute roles={[ROLES.CUSTOMER]}><UserDashboard /></ProtectedRoute>}
+            />
+            <Route
+              path="/officer/dashboard"
+              element={<ProtectedRoute roles={[ROLES.EMPLOYEE, ROLES.ADMIN]}><Investigation /></ProtectedRoute>}
+            />
+            <Route
+              path="/admin/dashboard"
+              element={<ProtectedRoute roles={[ROLES.ADMIN]}><Dashboard /></ProtectedRoute>}
+            />
 
             <Route
               path="/claims/submit"

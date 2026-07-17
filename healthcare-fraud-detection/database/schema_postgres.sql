@@ -52,6 +52,11 @@ CREATE TABLE IF NOT EXISTS insurance_claims (
     witnesses_count INTEGER DEFAULT 0,
     claim_status VARCHAR(50) DEFAULT 'submitted',
     submitted_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    diagnosis_code VARCHAR(50),
+    procedure_code VARCHAR(50),
+    provider_name VARCHAR(150),
+    length_of_stay INTEGER DEFAULT 0,
+    visit_type VARCHAR(50) DEFAULT 'Outpatient',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -61,6 +66,8 @@ CREATE TABLE IF NOT EXISTS fraud_predictions (
     claim_id INTEGER NOT NULL REFERENCES insurance_claims(claim_id) ON DELETE CASCADE,
     predicted_label VARCHAR(50) NOT NULL CHECK (predicted_label IN ('Fraud', 'Not Fraud')),
     fraud_probability DOUBLE PRECISION NOT NULL CHECK (fraud_probability >= 0 AND fraud_probability <= 1),
+    raw_probability DOUBLE PRECISION DEFAULT 0.0,
+    business_rule_adjustment DOUBLE PRECISION DEFAULT 0.0,
     risk_level VARCHAR(20) CHECK (risk_level IN ('Low', 'Medium', 'High')),
     model_version VARCHAR(50),
     prediction_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

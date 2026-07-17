@@ -1,7 +1,7 @@
 import api, { USE_MOCK, mockDelay } from './api';
 import { mockClaims } from './mockData';
 
-let claimsStore = [...mockClaims];
+export let claimsStore = [...mockClaims];
 
 function mapClaimFromBackend(c) {
   if (!c) return null;
@@ -21,6 +21,26 @@ function mapClaimFromBackend(c) {
   else if (c.claim_status === 'rejected') displayStatus = 'Rejected';
   else if (c.claim_status === 'under_review') displayStatus = 'Under Investigation';
 
+  // Helper to map procedure to display label
+  const procedureLabels = {
+    '99213': '99213 - Outpatient Visit (15-min)',
+    '99214': '99214 - Outpatient Visit (25-min)',
+    '36415': '36415 - Blood Draw',
+    '71045': '71045 - Chest X-Ray',
+    '93000': '93000 - Electrocardiogram (ECG)',
+    '99283': '99283 - Emergency Dept Visit'
+  };
+
+  // Helper to map diagnosis to display label
+  const diagnosisLabels = {
+    'I10': 'I10 - Essential Hypertension',
+    'E11': 'E11 - Type 2 Diabetes',
+    'M25': 'M25 - Joint Pain',
+    'J45': 'J45 - Asthma',
+    'M54': 'M54 - Lower Back Pain',
+    'I25': 'I25 - Ischemic Heart Disease'
+  };
+
   return {
     id: c.claim_number || `CLM-${c.claim_id}`,
     dbId: c.claim_id, // preserve database key
@@ -35,18 +55,18 @@ function mapClaimFromBackend(c) {
       policyNumber: c.policy?.policy_number || 'POL-MOCK-1234',
     },
     medical: {
-      diagnosis: c.incident_description?.includes('diagnosis') ? c.incident_description.split(':')[1]?.trim() : 'Type 2 Diabetes',
-      procedure: 'MRI Scan',
-      provider: 'Sunrise General Hospital',
-      specialty: 'Radiology',
+      diagnosis: diagnosisLabels[c.diagnosis_code] || c.diagnosis_code || (c.incident_description?.includes('diagnosis') ? c.incident_description.split(':')[1]?.trim() : 'Type 2 Diabetes'),
+      procedure: procedureLabels[c.procedure_code] || c.procedure_code || 'MRI Scan',
+      provider: c.provider_name || 'Sunrise General Hospital',
+      specialty: c.procedure_code?.startsWith('7') ? 'Radiology' : 'General Practice',
     },
     financial: {
       claimAmount: c.claim_amount,
       approvedAmount: c.claim_status === 'approved' ? c.claim_amount : 0,
     },
     hospital: {
-      visitType: 'Outpatient',
-      lengthOfStay: 2,
+      visitType: c.visit_type || (c.length_of_stay > 0 ? 'Inpatient' : 'Outpatient'),
+      lengthOfStay: c.length_of_stay || 0,
     },
     history: { previousVisits: 1 },
     dates: {
@@ -56,8 +76,11 @@ function mapClaimFromBackend(c) {
     prediction: {
       label: prediction.predicted_label || 'Genuine',
       probability: prediction.fraud_probability || 0.0,
+      rawProbability: prediction.raw_probability !== undefined ? prediction.raw_probability : prediction.fraud_probability,
+      businessRuleAdjustment: prediction.business_rule_adjustment !== undefined ? prediction.business_rule_adjustment : 0.0,
       riskLevel: prediction.risk_level || 'Low',
       explanations: prediction.remarks ? prediction.remarks.split(',').map(s => s.trim()) : [],
+      modelVersion: prediction.model_version || 'v1.0',
     },
     status: displayStatus,
     createdAt: c.created_at,
@@ -129,26 +152,79 @@ export async function getClaim(id) {
 export async function submitClaim(payload) {
   if (USE_MOCK) {
     const probability = Math.min(0.99, Math.max(0.02,
-      (payload.financial.claimAmount > 20000 ? 0.35 : 0.05) +
-      (payload.hospital.lengthOfStay > 6 ? 0.25 : 0) +
-      (payload.history.previousVisits > 3 ? 0.2 : 0) +
+      (payload.claimAmount > 5000 ? 0.35 : 0.05) +
+      (payload.lengthOfStay > 6 ? 0.25 : 0) +
       Math.random() * 0.2
     ));
     const riskLevel = probability > 0.7 ? 'High' : probability > 0.35 ? 'Medium' : 'Low';
     const label = probability > 0.55 ? 'Fraud' : 'Genuine';
     const explanations = [];
-    if (payload.financial.claimAmount > 20000) explanations.push('Claim amount significantly above provider average');
-    if (payload.hospital.lengthOfStay > 6) explanations.push('Length of hospital stay exceeds diagnosis norm');
-    if (payload.history.previousVisits > 3) explanations.push('Patient filed multiple claims in a short period');
-    if (explanations.length === 0 && riskLevel !== 'Low') explanations.push('Provider flagged for elevated claim volume this quarter');
+    if (payload.claimAmount > 5000) explanations.push('Claim amount significantly above provider average');
+    if (payload.lengthOfStay > 6) explanations.push('Length of hospital stay exceeds diagnosis norm');
+
+    const diagnosisLabels = {
+      'I10': 'I10 - Essential Hypertension',
+      'E11': 'E11 - Type 2 Diabetes',
+      'M25': 'M25 - Joint Pain',
+      'J45': 'J45 - Asthma',
+      'M54': 'M54 - Lower Back Pain',
+      'I25': 'I25 - Ischemic Heart Disease'
+    };
+
+    const procedureLabels = {
+      '99213': '99213 - Outpatient Visit (15-min)',
+      '99214': '99214 - Outpatient Visit (25-min)',
+      '36415': '36415 - Blood Draw',
+      '71045': '71045 - Chest X-Ray',
+      '93000': '93000 - Electrocardiogram (ECG)',
+      '99283': '99283 - Emergency Dept Visit'
+    };
 
     const newClaim = {
-      id: `CLM-${1000 + claimsStore.length}`,
-      ...payload,
-      prediction: { label, probability: Math.round(probability * 1000) / 1000, riskLevel, explanations },
-      status: riskLevel === 'High' ? 'Pending Review' : 'Approved',
-      createdAt: payload.dates.claimDate,
+      id: `CLM-${10000 + claimsStore.length}`,
+      dbId: claimsStore.length + 1,
+      patient: {
+        name: 'Ava Thompson',
+        age: payload.age || 45,
+        gender: 'Female',
+        state: 'TX',
+      },
+      insurance: {
+        type: 'Private',
+        policyNumber: 'POL-MOCK-1234',
+      },
+      medical: {
+        diagnosis: diagnosisLabels[payload.diagnosis] || payload.diagnosis,
+        procedure: procedureLabels[payload.procedure] || payload.procedure,
+        provider: payload.provider || 'Sunrise General Hospital',
+        specialty: payload.procedure?.startsWith('7') ? 'Radiology' : 'General Practice',
+      },
+      financial: {
+        claimAmount: payload.claimAmount,
+        approvedAmount: riskLevel === 'Low' ? payload.claimAmount : 0,
+      },
+      hospital: {
+        visitType: payload.lengthOfStay > 0 ? 'Inpatient' : 'Outpatient',
+        lengthOfStay: payload.lengthOfStay || 0,
+      },
+      history: { previousVisits: 1 },
+      dates: {
+        serviceDate: payload.serviceDate,
+        claimDate: new Date().toISOString().split('T')[0],
+      },
+      prediction: { 
+        label, 
+        probability: Math.round(probability * 1000) / 1000, 
+        rawProbability: Math.round(Math.max(0.01, probability * 0.7) * 1000) / 1000,
+        businessRuleAdjustment: Math.round(Math.max(0.0, probability * 0.3) * 1000) / 1000,
+        riskLevel, 
+        explanations,
+        modelVersion: 'TensorFlow-Keras-v1.0.0'
+      },
+      status: riskLevel === 'Low' ? 'Approved' : 'Pending Review',
+      createdAt: new Date().toISOString().split('T')[0],
       notes: [],
+      submittedBy: 'USR-004'
     };
     claimsStore = [newClaim, ...claimsStore];
     return mockDelay(newClaim, 900);
@@ -156,12 +232,13 @@ export async function submitClaim(payload) {
   
   // Real API mapping
   const backendPayload = {
-     patientName: payload.patient.name,
-     claimAmount: payload.financial.claimAmount,
-     gender: payload.patient.gender,
-     age: payload.patient.age,
-     diagnosis: payload.medical.diagnosis || 'I10',
-     hospital: payload.medical.provider || 'General Hospital'
+     age: payload.age,
+     serviceDate: payload.serviceDate,
+     diagnosis: payload.diagnosis,
+     procedure: payload.procedure,
+     claimAmount: payload.claimAmount,
+     lengthOfStay: payload.lengthOfStay || 0,
+     provider: payload.provider
   };
   const { data } = await api.post('/claims', backendPayload);
   return mapClaimFromBackend(data.data);

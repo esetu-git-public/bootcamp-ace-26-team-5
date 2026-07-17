@@ -7,12 +7,37 @@ import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK } from '../services/api';
 
-export default function Login() {
+export default function Login({ prefilledRole }) {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+
+  // Prefill credentials matching the aligned database seeds
+  const rolePrefills = {
+    customer: { 
+      email: 'patient@claimguard.ai', 
+      password: 'demo1234', 
+      title: 'Customer Portal', 
+      subtitle: 'Access your health policy, claims history, and track adjudication progress' 
+    },
+    officer: { 
+      email: 'officer@claimguard.ai', 
+      password: 'demo1234', 
+      title: 'Claims Officer Portal', 
+      subtitle: 'Perform manual risk audits and adjudicate pending claims queue' 
+    },
+    admin: { 
+      email: 'admin@claimguard.ai', 
+      password: 'demo1234', 
+      title: 'Administrator Portal', 
+      subtitle: 'Review platform system audit logs and monitor analytics KPIs' 
+    }
+  };
+
+  const currentPrefill = prefilledRole ? rolePrefills[prefilledRole] : null;
+
+  const [email, setEmail] = useState(currentPrefill ? currentPrefill.email : '');
+  const [password, setPassword] = useState(currentPrefill ? currentPrefill.password : '');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +48,12 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      const dest = location.state?.from?.pathname || '/dashboard';
+      // Explicit role-specific dashboard routing paths
+      let dest = location.state?.from?.pathname || '/dashboard';
+      if (prefilledRole === 'customer') dest = '/customer/dashboard';
+      else if (prefilledRole === 'officer') dest = '/officer/dashboard';
+      else if (prefilledRole === 'admin') dest = '/admin/dashboard';
+      
       navigate(dest, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Unable to sign in. Please try again.');
@@ -43,13 +73,15 @@ export default function Login() {
       bgcolor: 'background.default', p: 2,
     }}>
       <Paper sx={{ width: '100%', maxWidth: 420, p: 4 }}>
-        <Stack alignItems="center" spacing={1} sx={{ mb: 3 }}>
+        <Stack alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
           <Box sx={{ width: 46, height: 46, borderRadius: 2, bgcolor: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ShieldOutlinedIcon sx={{ color: '#fff' }} />
           </Box>
-          <Typography variant="h5">ClaimGuard</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            AI-Powered Healthcare Claim Fraud Detection
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {currentPrefill ? currentPrefill.title : 'ClaimGuard'}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
+            {currentPrefill ? currentPrefill.subtitle : 'AI-Powered Healthcare Claim Fraud Detection'}
           </Typography>
         </Stack>
 
@@ -57,7 +89,7 @@ export default function Login() {
           <Stack spacing={2}>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField
-              label="Email" type="email" value={email} required fullWidth
+              label="Email Address" type="email" value={email} required fullWidth
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
             />
@@ -76,19 +108,19 @@ export default function Login() {
               }}
             />
             <Button type="submit" variant="contained" size="large" disabled={loading}>
-              {loading ? 'Signing in…' : 'Log In'}
+              {loading ? 'Authenticating…' : 'Log In'}
             </Button>
           </Stack>
         </form>
 
-        <Typography variant="body2" sx={{ textAlign: 'center', mt: 2.5, color: 'text.secondary' }}>
+        <Typography variant="body2" sx={{ textAlign: 'center', mt: 3, color: 'text.secondary' }}>
           New here?{' '}
           <Typography component={RouterLink} to="/signup" variant="body2" sx={{ color: 'primary.main', fontWeight: 600, textDecoration: 'none' }}>
             Create a policyholder account
           </Typography>
         </Typography>
 
-        {USE_MOCK && (
+        {USE_MOCK && !prefilledRole && (
           <Box sx={{ mt: 3 }}>
             <Divider sx={{ mb: 1.5 }}>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>demo accounts</Typography>
@@ -97,7 +129,6 @@ export default function Login() {
               {[
                 ['patient@claimguard.ai', 'Policyholder'],
                 ['officer@claimguard.ai', 'Claims Officer'],
-                ['investigator@claimguard.ai', 'Fraud Investigator'],
                 ['admin@claimguard.ai', 'Admin'],
               ].map(([demoEmail, role]) => (
                 <Button key={demoEmail} size="small" variant="outlined" onClick={() => fillDemo(demoEmail)} sx={{ justifyContent: 'space-between' }}>
