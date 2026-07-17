@@ -45,7 +45,7 @@ from routes.reports import reports_bp
 from routes.investigation import investigation_bp
 from routes.audit import audit_bp
 from routes.notifications import notifications_bp
-from routes.ml import ml_bp
+from routes.dl import dl_bp
 from routes.feedback import feedback_bp
 from middleware.error_handler import error_bp
 
@@ -77,7 +77,7 @@ app.register_blueprint(reports_bp, url_prefix="/api/reports")
 app.register_blueprint(investigation_bp, url_prefix="/api/investigation")
 app.register_blueprint(audit_bp, url_prefix="/api/audit")
 app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
-app.register_blueprint(ml_bp, url_prefix="/api/ml")
+app.register_blueprint(dl_bp, url_prefix="/api/dl")
 app.register_blueprint(feedback_bp, url_prefix="/api/feedback")
 app.register_blueprint(error_bp)
 

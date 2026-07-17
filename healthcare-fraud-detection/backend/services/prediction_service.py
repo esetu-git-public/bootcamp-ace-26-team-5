@@ -2,11 +2,11 @@ import os
 import sys
 from pathlib import Path
 
-# Resolve prediction path to ml/inference/v1/
+# Resolve prediction path to dl/inference/v1/
 BASE_DIR = Path(__file__).resolve().parent.parent
-ML_INFERENCE_DIR = os.path.abspath(BASE_DIR / ".." / "ml" / "inference" / "v1")
-if ML_INFERENCE_DIR not in sys.path:
-    sys.path.append(ML_INFERENCE_DIR)
+DL_INFERENCE_DIR = os.path.abspath(BASE_DIR / ".." / "dl" / "inference" / "v1")
+if DL_INFERENCE_DIR not in sys.path:
+    sys.path.append(DL_INFERENCE_DIR)
 
 from predict import predict_claim
 from models import FraudPrediction

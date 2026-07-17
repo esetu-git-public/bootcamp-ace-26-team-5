@@ -73,6 +73,8 @@ def predict_claim(claim_data: dict) -> dict:
     length_of_stay = int(df_engineered["Length_of_Stay"].iloc[0])
     prior_visits = int(claim_data.get("Prior_Visits_12m", 1))
     provider_claims = int(claim_data.get("Number_of_Claims_Per_Provider_Monthly", 30))
+    approval_ratio = float(df_engineered["Approval_Ratio"].iloc[0])
+    claim_delay = int(claim_data.get("Days_Between_Service_and_Claim", 10))
 
     # Calculate Business Rule Score (Complementary adjustments based on strong risk evidence)
     br_adjustment = 0.0
@@ -100,6 +102,15 @@ def predict_claim(claim_data: dict) -> dict:
 
     if risk_score >= 2:
         br_adjustment += 0.10
+
+    # Rules matching top deep learning feature importances
+    if claim_amount > 500 and approval_ratio < 0.5:
+        br_adjustment += 0.20
+        reasons.append("Suspicious Low Approval Ratio")
+
+    if claim_delay >= 30:
+        br_adjustment += 0.10
+        reasons.append("Delayed Claim Submission")
 
     # Cap business rule score adjustment
     br_adjustment = min(0.45, br_adjustment)
