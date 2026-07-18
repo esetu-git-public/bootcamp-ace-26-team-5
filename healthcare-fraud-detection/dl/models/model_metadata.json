@@ -3,9 +3,9 @@
   "model_version": "dl_keras_v1.0",
   "training_date": "2026-07-08",
   "dataset_version": "claims_v1.0",
-  "accuracy": 0.9452,
-  "precision": 0.9321,
-  "recall": 0.9184,
-  "f1_score": 0.9252,
+  "accuracy": 0.9320,
+  "precision": 0.9240,
+  "recall": 0.9180,
+  "f1_score": 0.9210,
   "threshold": 0.50
 }

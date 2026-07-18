@@ -132,16 +132,16 @@ export default function ModelPerformance() {
                 <ModelSpecField label="Input Dimension" value="18 Columns (51 Engineered Features)" />
               </Grid>
               <Grid item xs={6} sm={4} md={3}>
-                <ModelSpecField label="Validation Accuracy" value="95.8%" />
+                <ModelSpecField label="Validation Accuracy" value="93.2%" />
               </Grid>
               <Grid item xs={6} sm={4} md={3}>
-                <ModelSpecField label="Precision Score" value="94.6%" />
+                <ModelSpecField label="Precision Score" value="92.4%" />
               </Grid>
               <Grid item xs={6} sm={4} md={3}>
-                <ModelSpecField label="Recall (Sensitivity)" value="93.7%" />
+                <ModelSpecField label="Recall (Sensitivity)" value="91.8%" />
               </Grid>
               <Grid item xs={6} sm={4} md={3}>
-                <ModelSpecField label="F1-Score (Blended)" value="94.1%" />
+                <ModelSpecField label="F1-Score (Blended)" value="92.1%" />
               </Grid>
             </Grid>
           </Card>
