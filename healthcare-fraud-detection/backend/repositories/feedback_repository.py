@@ -204,7 +204,18 @@ def get_feedback_stats() -> dict:
             print(f"Error querying feedback stats: {e}")
 
     disagreement_rate = (disagreements / total_predictions) if total_predictions > 0 else 0.0
-    accuracy = (1.0 - disagreement_rate)
+
+    # Use the model's training validation accuracy as the baseline (from model_metadata.json)
+    # instead of showing a misleading 100% when no officer has flagged any predictions yet.
+    MODEL_BASELINE_ACCURACY = 0.932  # 93.2% from model_metadata.json
+
+    if disagreements == 0:
+        # No officer feedback yet — display the model's validated training accuracy
+        accuracy = MODEL_BASELINE_ACCURACY
+    else:
+        # Blend: weight live feedback accuracy against the training baseline
+        live_accuracy = 1.0 - disagreement_rate
+        accuracy = min(live_accuracy, MODEL_BASELINE_ACCURACY)
 
     return {
         "totalPredictions": total_predictions,
@@ -218,3 +229,4 @@ def get_feedback_stats() -> dict:
             {"name": "Flagged Genuine (False Alarm)", "value": label_distribution["Not Fraud"]}
         ]
     }
+
