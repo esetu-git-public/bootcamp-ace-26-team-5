@@ -1,47 +1,120 @@
-# Dependencies
+# =======================================================
+# ClaimGuard - Healthcare Fraud Detection System
+# .gitignore
+# =======================================================
+
+# ---------------------------
+# Python Dependencies
+# ---------------------------
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+**/venv/
+**/.venv/
+site-packages/
+
+# ---------------------------
+# Python Cache & Bytecode
+# ---------------------------
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# ---------------------------
+# JavaScript Dependencies
+# ---------------------------
 node_modules/
 frontend/node_modules/
 backend/node_modules/
 
-# Build output
+# ---------------------------
+# Frontend Build Artifacts
+# ---------------------------
 frontend/dist/
 frontend/build/
+dist/
+build/
+.next/
+out/
 
-# Environment variables
+# ---------------------------
+# Environment Files (Secrets)
+# ---------------------------
 .env
 .env.local
+.env.production
+backend/.env
+frontend/.env
 *.env
 
-# Python
-__pycache__/
-*.pyc
-venv/
-.venv/
-
-# ML artifacts
-ml/*.pkl
-ml/*.model
-ml/checkpoints/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Editor
-.vscode/
-.idea/
-
-# Logs
+# ---------------------------
+# Runtime Logs
+# ---------------------------
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/app.log
+backend/prediction.log
 
-# Database files
+# ---------------------------
+# ML Training Artifacts (Regenerable)
+# ---------------------------
+dl/artifacts/X_train.pkl
+dl/artifacts/X_test.pkl
+dl/artifacts/y_train.pkl
+dl/artifacts/y_test.pkl
+dl/archive/
+
+# ---------------------------
+# Database Files (Runtime Generated)
+# ---------------------------
 database/*.db
 *.db
 
-# Python bytecode
-# Python bytecode
-**/__pycache__/
+# ---------------------------
+# OS Files
+# ---------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
 
-# Scratch directory
+# ---------------------------
+# Editor Files
+# ---------------------------
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ---------------------------
+# Scratch / Temp
+# ---------------------------
 scratch/
+tmp/
+temp/
+
+# ---------------------------
+# Coverage & Test Output
+# ---------------------------
+coverage/
+.coverage
+htmlcov/
+*.cover
+
+# ---------------------------
+# Jupyter Notebook Checkpoints
+# ---------------------------
+.ipynb_checkpoints/
